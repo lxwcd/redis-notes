@@ -1,5 +1,8 @@
 Redis 学习笔记
 
+# 资源
+
+
 # NoSQL
 > [What is a NoSQL database?](https://redis.com/nosql/what-is-nosql/)
 
