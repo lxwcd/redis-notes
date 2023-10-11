@@ -83,6 +83,7 @@ They are commonly used in web applications, real-time analytics, content managem
 # CAP 定理
 > [CAP theorem](https://en.wikipedia.org/wiki/CAP_theorem)
 > [What is the CAP theorem?](https://www.ibm.com/topics/cap-theorem)
+> [CAP Theorem for System Design - Explained](https://www.turing.com/kb/cap-theorem-for-system-design)
 
 
 对于 distributed data store，仅能提供下面三种中的两种保障：
@@ -91,16 +92,15 @@ They are commonly used in web applications, real-time analytics, content managem
 所有的客户端访问在相同时间访问所有节点得到的数据相同
 因此，如果有一个节点的数据发生写操作，必须将其改变同步到其他全部节点才认为写操作成功
 
-
 - Availability
 可用性
-如果一个或多个节点出现故障，客户端访问其他节点时不受影响，所有工作的节点必须能得到有效的相应
-客户端得到的响应不能有延迟，不能返回错误，但不保证响应的结果是最近写入的数据（如其他节点有写入数据但还未同步到其他节点就出故障）
-
+如果一个或多个节点出现故障，客户端访问其他节点时不受影响，所有工作的节点必须能得到有效的响应
+客户端得到的响应不能有延迟，不能返回错误，**但不保证响应的结果是最近写入的数据**（如其他节点有写入数据但还未同步到其他节点就出故障）
 
 - Partition tolerance
 分区容忍性
 分布在不同位置的节点由于网络的原因造成数据丢失，无法通信时仍能继续提供服务
+Partition tolerance means that the cluster must continue to work despite any number of communication breakdowns between nodes in the system.
 
 
 ***********************
@@ -108,13 +108,17 @@ They are commonly used in web applications, real-time analytics, content managem
 在分布式系统中，P 很容易发生，此时需要在 C 和 A 之间做出选择，根据实际的业务场景，可以分为下面三类：
 - CA
 单点集群
+无分区容忍性
 
 - CP
 如 Zookeeper，PXC 集群
+When a partition occurs between any two nodes, the system has to shut down the non-consistent node (i.e., make it unavailable) until the partition is resolved.
+为了保持一致性，当某个节点出故障时，该节点会被关闭
 
 - AP
 很多分布式系统的选择
 如退款业务，可以延迟一些到账
+When a partition occurs, all nodes remain available but those at the wrong end of a partition might return an older version of data than others.
 
 
 高并发：
