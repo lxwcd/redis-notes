@@ -378,6 +378,31 @@ Redis 分布式锁是一种基于 Redis 的机制，用于在分布式系统中�
 # Redis Pipeline
 > [Reids Pipelining](https://redis.io/docs/manual/pipelining/)
 
+Redis pipelining is a technique for improving performance by issuing multiple commands at once without waiting for the response to each individual command. 
+Pipelining is supported by most Redis clients. 
+
+Redis is a TCP server using the client-server model and what is called a Request/Response protocol.
+客户端通常以阻塞模式发送请求给服务端，即客户端发送请求后一直等待服务端响应，才会继续执行其他任务
+
+RTT (Round Trip Time) 表示在网络通信中发送一个数据包从发送端到接收端，再返回到发送端所经历的时间。
+
+
+使用 Redis Pipeline 可以将多个命令打包发送到 Redis 服务器，并一次性获取结果，减少了通信次数和解析开销，从而提高了性能。
+
+下面是 Redis Pipeline 的一些关键特点和使用方法：
+
+1. 批量操作：Redis Pipeline 允许一次性发送多个命令到 Redis 服务器，而不需要等待每个命令的响应。这样可以减少往返时间，并提高数据操作的效率。
+
+2. 延迟和吞吐量：通过将多个命令打包在一次请求中，可以减少每个命令的通信延迟。特别是在需要执行大量命令的情况下，Redis Pipeline 可以显著提高吞吐量。
+
+3. 原子性：Redis Pipeline 内部的每个命令仍然是原子执行的，保证了多个命令之间的一致性。这意味着即使在 Pipeline 中的多个命令失败，也不会影响其他命令的执行。
+
+4. 使用方法：Redis Pipeline 的使用方法相对简单。首先，客户端将要执行的多个命令按顺序添加到 Pipeline 中，然后一次性发送给 Redis 服务器。最后，客户端可以一次性获取所有命令的执行结果。
+
+需要注意的是，Redis Pipeline 适用于批量操作或需要批量获取结果的场景。对于单个操作或需要即时获取结果的场景，直接发送单个命令可能更为合适。
+
+在实际应用中，可以根据具体的需求和性能要求，合理选择是否使用 Redis Pipeline 来优化数据操作的效率。
+
 # Redis 慢查询配置
 只计算执行命令的时间，不包括输出指令的时间
 
