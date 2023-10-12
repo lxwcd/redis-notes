@@ -403,6 +403,44 @@ RTT (Round Trip Time) 表示在网络通信中发送一个数据包从发送端�
 
 在实际应用中，可以根据具体的需求和性能要求，合理选择是否使用 Redis Pipeline 来优化数据操作的效率。
 
+# 安装 Redis
+> [Install Redis on Linux](https://redis.io/docs/getting-started/installation/install-redis-on-linux/)
+
+# Redis 配置
+> [Redis configuration file example](https://redis.io/docs/management/config-file/)
+
+环境：ubuntu 22.04  redis 5.6
+
+`dpkg -L redis-server` 查看配置文件的位置 `/etc/redis/redis.conf`
+
+- 默认监听地址为本机
+```bash
+bind 127.0.0.1 ::1
+```
+- 默认端口为 6379
+- protected_mode 保护模式
+默认 yes，如果其他主机的客户端没有认证配置则不能连接，需要密码验证
+在 docker 中可以设置为 no
+- tcp-backlog tcp 全连接队列长度
+默认 511
+不能超过内核设置的值 /proc/sys/net/core/somaxconn 和 tcp_max_syn_backlog
+- timeout
+客户端连接到服务端后，空闲多长时间超时，默认 0 表示永不超时
+- tcp-keepalive 
+tcp 会话保持时间，默认 300s
+- daemonize
+默认为 yes，则 redis-server 以守护进程方式后台运行
+后天运行时会写一个 pid 文件到 /var/run/redis.pid 中
+-
+
+
+
+
+
+
+
+
+
 # Redis 慢查询配置
 只计算执行命令的时间，不包括输出指令的时间
 
@@ -891,65 +929,3 @@ cluster-require-full-coverage：默认 yes，什么场景需要 yes ？
 集群偏斜
 
 集群最少三个节点，最好奇数节点，防止脑裂
-# 安装 Redis
-
-## 包安装
-
-
-
-
-## 编译安装
-- 下载安装包并解压
-- make 
-根据 src/README.md 可以指定安装的路径
-
-
-- 为二进制文件创建软连接
-```bash
-
-```
-
-- 创建配置文件等目录
-将源码目录中的配置文件拷贝到安装目录的配置文件路径中
-
-
-## 优化配置
-
-### overcommit_memory warning 
-> 内核支持 overcommit 策略介绍：[overcommit-accounting](https://www.kernel.org/doc/Documentation/vm/overcommit-accounting)
-
-```bash
-7305:M 27 Jun 2023 12:22:48.887 # WARNING Memory overcommit must be enabled! Without it, a background save or replication may fail under low memory condition. Being disabled, it can can also cause failures without low memory condition, see https://github.com/jemalloc/jemalloc/issues/1328. To fix this issue add 'vm.overcommit_memory = 1' to /etc/sysctl.conf and then reboot or run the command 'sysctl vm.overcommit_memory=1' for this to take effect.
-7305:M 27 Jun 2023 12:22:48.888 * Ready to accept connections
-```
-
-根据提示查看内核参数：
-```bash
-[root@docker docker1]$ whatis sysctl
-sysctl (8)           - configure kernel parameters at runtime
-sysctl (2)           - read/write system parameters
-[root@docker docker1]$
-[root@docker docker1]$ sysctl vm.overcommit_memory
-vm.overcommit_memory = 0
-```
-
-当前内存分配策略为 0，根据提示改为 1
-
-
-### protected mode
-在 docker 中可以设置为 no
-
-
-## 创建用户和组
-```bash
-[root@docker etc]$ groupadd -r -g 998 redis
-[root@docker etc]$ useradd -g redis -r -s /sbin/nologin -M redis
-[root@docker etc]$ id redis
-uid=998(redis) gid=998(redis) groups=998(redis)
-```
-
-
-
-
-
-
