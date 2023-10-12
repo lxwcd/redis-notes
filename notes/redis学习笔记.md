@@ -748,16 +748,43 @@ OK
 
 
 # Redis 持久化
-> [Redis persistence demystified](http://oldblog.antirez.com/post/redis-persistence-demystified.html)
+> 官方文档：[Redis persistence](https://redis.io/docs/management/persistence/)
+> 官方推荐的博客：[Redis persistence demystified](http://oldblog.antirez.com/post/redis-persistence-demystified.html)
 
-
+持久化指将数据持久化保存，redis 提供下面几种持久化方案：
+- RDB
+- AOF
+- No persistence
+You can disable persistence completely. This is sometimes used when caching.
+- RDB + AOF
 
 ## RDB
-- Redis snapshotting
+- Redis Database
+- RDB persistence performs point-in-time snapshots of your dataset at specified intervals.
 - 存放保存那一刻的快照，保存快照的时间可以用户自己定义
-- 如果每 2 分钟保存一次快照，则最多丢失 2 分钟的数据
-- 快照为 .rdb 文件，每次新保存的快照覆盖旧的快照，只有一个快照文件
+如果每 2 分钟保存一次快照，则最多丢失 2 分钟的数据
+- 快照为 .rdb 文件，默认每次新保存的快照覆盖旧的快照，只有一个快照文件
 
+优点：
+- 压缩的文件，可以通过该文件恢复保存那一刻数据库的状态
+- RBD 文件保存是父进程通过 fork 生产子进程执行，因此不会占用父进程执行磁盘 I/O 操作
+- 与 AOF 相比，恢复数据更快
+- On replicas, RDB supports partial resynchronizations after restarts and failovers
+
+缺点：
+- 当数据库很大时，fork 子进程可能很消耗时间
+- 如果设置每间隔 5 分钟备份数据，则可能丢失 5 分钟的数据
+
+### RDB 快照的保存方式
+> [RDB 快照是如何实现的呢？](https://xiaolincoding.com/redis/base/redis_interview.html#rdb-快照是如何实现的呢)
+
+#### save 
+> [save](https://redis.io/commands/save/)
+
+
+
+
+#### bgsave
 
 ## bgsave
 background save
