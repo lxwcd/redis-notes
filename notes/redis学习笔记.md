@@ -413,6 +413,7 @@ RTT (Round Trip Time) 表示在网络通信中发送一个数据包从发送端�
 
 `dpkg -L redis-server` 查看配置文件的位置 `/etc/redis/redis.conf`
 
+1. 基本配置
 - 默认监听地址为本机
 ```bash
 bind 127.0.0.1 ::1
@@ -439,6 +440,8 @@ pid 文件路径默认 pidfile /var/run/redis/redis-server.pid
 日志文件位置，默认 /var/log/redis/redis-server.log
 - databases
 数据库数量，默认 16
+
+2. 快照配置
 
 
 
