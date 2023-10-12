@@ -457,7 +457,7 @@ pid 文件路径默认 pidfile /var/run/redis/redis-server.pid
 
 ### 内存管理
 
-# Redis 慢查询配置
+### Redis 慢查询配置
 slow log
 只计算真正执行命令的时间，不包括和客户端的 I/O 操作时间，即客户端发送命令，服务端响应结果，以及在服务器内部排队的时间
 
@@ -515,11 +515,236 @@ OK
 ```
 为 0 表示不限制
 
+
+可以使用通配符
+```bash
+127.0.0.1:6379> CONFIG GET slowlog*
+1) "slowlog-max-len"
+2) "128"
+3) "slowlog-log-slower-than"
+4) "10000"
+```
+
+
 查看全部配置：
 ```bash
 127.0.0.1:6379> CONFIG GET *
 ```
 
+# Redis 常用命令
+> [commands](https://redis.io/commands/)
+
+## info 查看信息
+> [info](https://redis.io/commands/info/)
+
+
+### server 查看当前节点信息
+#### run_id
+唯一标识该节点
+重启后会变化
+
+
+
+### replication 查看主从复制信息
+主节点查看：
+```bash
+127.0.0.1:6379> info replication
+# Replication
+role:master
+connected_slaves:2
+slave0:ip=172.27.0.12,port=6379,state=online,offset=1318142,lag=1
+slave1:ip=172.27.0.10,port=6379,state=online,offset=1318279,lag=0
+master_failover_state:no-failover
+master_replid:b5ea703708bf26937e904d33af4c15b964b98109
+master_replid2:b7028bd3c8774074343fcb4f48e9c3fc37cd25d6
+master_repl_offset:1318416
+second_repl_offset:163799
+repl_backlog_active:1
+repl_backlog_size:536870912
+repl_backlog_first_byte_offset:5820
+repl_backlog_histlen:1312597
+```
+- slave0 中的 `lag=1` 表示该 slave 在 data synchronization 方面落后 master 1 秒钟
+- slave0 中的 `offset` 表示该 slave 已经同步的数据偏移量
+
+
+#### master-replid
+master 节点的 replication ID
+During replication, the master publishes its replication ID, 
+which the slaves use to identify and connect to the correct master.
+
+
+#### master-replid2
+> master_replid2: The secondary replication ID, used for PSYNC after a failover.
+
+当主节点故障，更换新的主节点后，新的主节点会 publish a new reolication ID，即为新的 master-replid
+同时将旧的 replication ID，即原来的 master-replid 保存为 master-replid2
+
+原来的从节点（replicas）利用旧的 master-replid 和 offset 来与 master 节点同步数据时，
+新的 master 节点对比 offset 后，如果 offset 在有效范围内，则只用将相差的部分数据同步给从节点，
+该过程即为 `PSYNC`，即 partial synchronization
+
+```bash
+127.0.0.1:6379> info replication
+# Replication
+role:slave
+master_host:172.27.0.11
+master_port:6379
+master_link_status:up
+master_last_io_seconds_ago:0
+master_sync_in_progress:0
+slave_read_repl_offset:2094881
+slave_repl_offset:2094881
+slave_priority:100
+slave_read_only:1
+replica_announced:1
+connected_slaves:0
+master_failover_state:no-failover
+master_replid:b5ea703708bf26937e904d33af4c15b964b98109
+master_replid2:b7028bd3c8774074343fcb4f48e9c3fc37cd25d6
+master_repl_offset:2094881
+second_repl_offset:163799
+repl_backlog_active:1
+repl_backlog_size:536870912
+repl_backlog_first_byte_offset:5820
+repl_backlog_histlen:2089062
+```
+
+#### slave_read_repl_offset
+> slave_read_repl_offset: The read replication offset of the replica instance.
+
+This refers to the read replication offset of the replica instance. 
+It is the offset value representing the last byte position that the replica has successfully read from the master. 
+The replica continuously reads data from the master and updates this offset to track its progress in replicating the master's data.
+
+从节点从主节点接受并成功读取的数据的 offset
+
+#### slave_repl_offset
+> slave_repl_offset: The replication offset of the replica instance
+
+This represents the replication offset of the replica instance. 
+It is the offset value denoting the last byte position that the replica has received and successfully applied. 
+The replica receives data from the master and applies it to its own dataset. 
+The slave_repl_offset tracks the progress of the applied data, indicating the position up to which the replica has synchronized with the master.
+
+
+从节点将从主节点读取的数据成功写入到自己的 dataset 中的数据 offset
+
+#### replica_announced
+> replica_announced: Flag indicating if the replica is announced by Sentinel.
+
+为 `1` 表示真，该从节点被 sentinel 识别到，以后可以作为 failover 的备选节点使用
+
+
+
+#### repl_backlog_size
+指 master 节点中 backlog buffer 的最大尺寸，配置文件中有设置该大小：
+```bash
+# Set the replication backlog size. The backlog is a buffer that accumulates
+# replica data when replicas are disconnected for some time, so that when a
+# replica wants to reconnect again, often a full resync is not needed, but a
+# partial resync is enough, just passing the portion of data the replica
+# missed while disconnected.
+#
+# The bigger the replication backlog, the longer the replica can endure the
+# disconnect and later be able to perform a partial resynchronization.
+#
+# The backlog is only allocated if there is at least one replica connected.
+#
+repl-backlog-size 512mb
+```
+
+backlog buffer 是一个环形的 buffer，用来存放 replication stream sent by master node to 
+the replica nodes
+
+该 backlog buffer 位于内存中，如果 buffer 满了会覆盖旧的数据，而如果被覆盖的数据还未
+同步到从节点，则不能用 partial synchronization，只能用全量复制
+
+例如，某个从节点出故障，但 master 节点正常，从节点恢复正常后可能数据与 master 节点差了很多，
+此时如果从节点未同步的数据仍在 master 节点的 backlog buffer中，则仍可以继续用部分同步（PSYNC），
+否则，如果 backlog buffer 的缓冲区已满，部分数据已被覆盖，则只能用 full synchronization
+
+
+#### repl_backlog_histlen
+> repl_backlog_histlen: Size in bytes of the data in the replication backlog buffer
+
+backlog buffer 中实际的数据大小
+
+
+#### repl_backlog_first_byte_offse
+> repl_backlog_first_byte_offset: The master offset of the replication backlog buffer
+
+It represents the starting point of the replication backlog buffer. 
+
+
+## SLOWLOG 查看慢查询日志
+> [SLOWLOG](https://redis.io/commands/?name=slowlog)
+
+SLOWLOG 有三个子命令
+```bash
+127.0.0.1:6379> SLOWLOG help
+1) SLOWLOG <subcommand> arg arg ... arg. Subcommands are:
+2) GET [count] -- Return top entries from the slowlog (default: 10).    Entries are made of:
+3)     id, timestamp, time in microseconds, arguments array, client IP and port, client name
+4) LEN -- Return the length of the slowlog.
+5) RESET -- Reset the slowlog.
+```
+
+### 查看慢查询记录数目
+```bash
+127.0.0.1:6379> CONFIG SET slowlog-log-slower-than 1
+OK
+127.0.0.1:6379> CONFIG GET slowlog*
+1) "slowlog-max-len"
+2) "128"
+3) "slowlog-log-slower-than"
+4) "1"
+127.0.0.1:6379> SLOWLOG LEN
+(integer) 2
+```
+
+不指定记录数目，则默认显示最近 10 条
+
+### 查看满查询日志信息
+```bash
+127.0.0.1:6379> SLOWLOG GET 2
+1) 1) (integer) 5
+   2) (integer) 1697116648
+   3) (integer) 1
+   4) 1) "SLOWLOG"
+      2) "len"
+   5) "127.0.0.1:42914"
+   6) ""
+2) 1) (integer) 4
+   2) (integer) 1697116635
+   3) (integer) 62
+   4) 1) "SLOWLOG"
+      2) "GET"
+      3) "1"
+   5) "127.0.0.1:42914"
+   6) ""
+```
+
+上面命令显示最近 2 条慢查询日志，每个日志有 6 个信息
+- 慢查询日志编号，递增，总共 6 个日志记录，最后一个编号为 5
+- 命令被执行的时间戳
+- 日志执行的时长，单位为 us
+- 执行的命令，多个则分开多行，如最后一个日志执行的命令为 `SLOWLOG LEN`
+- 执行命令的客户端 IP 地址和端口
+- 执行命令的客户端名称
+可以通过下面命令查看
+```bash
+127.0.0.1:6379> CLIENT GETNAME
+(nil)
+```
+
+### 情况慢查询日志
+```bash
+127.0.0.1:6379> SLOWLOG RESET
+OK
+127.0.0.1:6379> SLOWLOG LEN
+(integer) 0
+```
 
 
 # Redis 持久化
@@ -840,150 +1065,6 @@ master_replid
 
 repl-diskless-sync-delay and repl-disable-tcp-nodelay difference
 
-
-
-# Redis 常用命令
-## info
-> [info](https://redis.io/commands/info/)
-
-
-### server 查看当前节点信息
-#### run_id
-唯一标识该节点
-重启后会变化
-
-
-
-### replication 查看主从复制信息
-主节点查看：
-```bash
-127.0.0.1:6379> info replication
-# Replication
-role:master
-connected_slaves:2
-slave0:ip=172.27.0.12,port=6379,state=online,offset=1318142,lag=1
-slave1:ip=172.27.0.10,port=6379,state=online,offset=1318279,lag=0
-master_failover_state:no-failover
-master_replid:b5ea703708bf26937e904d33af4c15b964b98109
-master_replid2:b7028bd3c8774074343fcb4f48e9c3fc37cd25d6
-master_repl_offset:1318416
-second_repl_offset:163799
-repl_backlog_active:1
-repl_backlog_size:536870912
-repl_backlog_first_byte_offset:5820
-repl_backlog_histlen:1312597
-```
-- slave0 中的 `lag=1` 表示该 slave 在 data synchronization 方面落后 master 1 秒钟
-- slave0 中的 `offset` 表示该 slave 已经同步的数据偏移量
-
-
-#### master-replid
-master 节点的 replication ID
-During replication, the master publishes its replication ID, 
-which the slaves use to identify and connect to the correct master.
-
-
-#### master-replid2
-> master_replid2: The secondary replication ID, used for PSYNC after a failover.
-
-当主节点故障，更换新的主节点后，新的主节点会 publish a new reolication ID，即为新的 master-replid
-同时将旧的 replication ID，即原来的 master-replid 保存为 master-replid2
-
-原来的从节点（replicas）利用旧的 master-replid 和 offset 来与 master 节点同步数据时，
-新的 master 节点对比 offset 后，如果 offset 在有效范围内，则只用将相差的部分数据同步给从节点，
-该过程即为 `PSYNC`，即 partial synchronization
-
-```bash
-127.0.0.1:6379> info replication
-# Replication
-role:slave
-master_host:172.27.0.11
-master_port:6379
-master_link_status:up
-master_last_io_seconds_ago:0
-master_sync_in_progress:0
-slave_read_repl_offset:2094881
-slave_repl_offset:2094881
-slave_priority:100
-slave_read_only:1
-replica_announced:1
-connected_slaves:0
-master_failover_state:no-failover
-master_replid:b5ea703708bf26937e904d33af4c15b964b98109
-master_replid2:b7028bd3c8774074343fcb4f48e9c3fc37cd25d6
-master_repl_offset:2094881
-second_repl_offset:163799
-repl_backlog_active:1
-repl_backlog_size:536870912
-repl_backlog_first_byte_offset:5820
-repl_backlog_histlen:2089062
-```
-
-#### slave_read_repl_offset
-> slave_read_repl_offset: The read replication offset of the replica instance.
-
-This refers to the read replication offset of the replica instance. 
-It is the offset value representing the last byte position that the replica has successfully read from the master. 
-The replica continuously reads data from the master and updates this offset to track its progress in replicating the master's data.
-
-从节点从主节点接受并成功读取的数据的 offset
-
-#### slave_repl_offset
-> slave_repl_offset: The replication offset of the replica instance
-
-This represents the replication offset of the replica instance. 
-It is the offset value denoting the last byte position that the replica has received and successfully applied. 
-The replica receives data from the master and applies it to its own dataset. 
-The slave_repl_offset tracks the progress of the applied data, indicating the position up to which the replica has synchronized with the master.
-
-
-从节点将从主节点读取的数据成功写入到自己的 dataset 中的数据 offset
-
-#### replica_announced
-> replica_announced: Flag indicating if the replica is announced by Sentinel.
-
-为 `1` 表示真，该从节点被 sentinel 识别到，以后可以作为 failover 的备选节点使用
-
-
-
-#### repl_backlog_size
-指 master 节点中 backlog buffer 的最大尺寸，配置文件中有设置该大小：
-```bash
-# Set the replication backlog size. The backlog is a buffer that accumulates
-# replica data when replicas are disconnected for some time, so that when a
-# replica wants to reconnect again, often a full resync is not needed, but a
-# partial resync is enough, just passing the portion of data the replica
-# missed while disconnected.
-#
-# The bigger the replication backlog, the longer the replica can endure the
-# disconnect and later be able to perform a partial resynchronization.
-#
-# The backlog is only allocated if there is at least one replica connected.
-#
-repl-backlog-size 512mb
-```
-
-backlog buffer 是一个环形的 buffer，用来存放 replication stream sent by master node to 
-the replica nodes
-
-该 backlog buffer 位于内存中，如果 buffer 满了会覆盖旧的数据，而如果被覆盖的数据还未
-同步到从节点，则不能用 partial synchronization，只能用全量复制
-
-例如，某个从节点出故障，但 master 节点正常，从节点恢复正常后可能数据与 master 节点差了很多，
-此时如果从节点未同步的数据仍在 master 节点的 backlog buffer中，则仍可以继续用部分同步（PSYNC），
-否则，如果 backlog buffer 的缓冲区已满，部分数据已被覆盖，则只能用 full synchronization
-
-
-#### repl_backlog_histlen
-> repl_backlog_histlen: Size in bytes of the data in the replication backlog buffer
-
-backlog buffer 中实际的数据大小
-
-
-#### repl_backlog_first_byte_offse
-> repl_backlog_first_byte_offset: The master offset of the replication backlog buffer
-
-It represents the starting point of the replication backlog buffer. 
 
 
 
