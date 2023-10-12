@@ -406,14 +406,26 @@ RTT (Round Trip Time) 表示在网络通信中发送一个数据包从发送端�
 # 安装 Redis
 > [Install Redis on Linux](https://redis.io/docs/getting-started/installation/install-redis-on-linux/)
 
+
+# 客户端程序 redis-cli 连接服务器
+> [Redis CLI](https://redis.io/docs/ui/cli/)
+
+Redis 命令行接口 redis-cli
+
+默认客户端连接到服务器的地址为 127.0.0.1，端口为 6379，可以通过 `-h` 和 `-p` 分别指定地址和端口
+初始默认无密码，因此直接输入 `redis-cli` 即可登录
+
+如果有密码，可以通过 `-a` 指定密码
+
+
 # Redis 配置
 > [Redis configuration file example](https://redis.io/docs/management/config-file/)
 
-环境：ubuntu 22.04  redis 5.6
+环境：ubuntu 22.04  redis 6
 
+## 配置文件配置
 `dpkg -L redis-server` 查看配置文件的位置 `/etc/redis/redis.conf`
-
-## 基本配置
+### 基本配置
 - 默认监听地址为本机
 ```bash
 bind 127.0.0.1 ::1
@@ -441,18 +453,73 @@ pid 文件路径默认 pidfile /var/run/redis/redis-server.pid
 - databases
 数据库数量，默认 16
 
-## 快照配置
+### 快照配置
 
-
-
-
-
-
-
-
+### 内存管理
 
 # Redis 慢查询配置
-只计算执行命令的时间，不包括输出指令的时间
+slow log
+只计算真正执行命令的时间，不包括和客户端的 I/O 操作时间，即客户端发送命令，服务端响应结果，以及在服务器内部排队的时间
+
+```bash
+# 定义时间阈值，单位为 us，默认时间为 1s，即命令执行时间超过 1s 即判断为 slow log
+slowlog-log-slower-than 10000
+
+# slowlog 日志保存的条数，日志保存在内存中，设置一个上限，否则占用内存
+slowlog-max-len 128
+```
+
+## config 命令修改配置
+config 命令可以查看当前 redis 的配置，并且在不重启的情况下动态修改 redis 配置
+但并非所有的配置都可以动态修改
+
+```bash
+127.0.0.1:6379> CONFIG HELP
+1) CONFIG <subcommand> arg arg ... arg. Subcommands are:
+2) GET <pattern> -- Return parameters matching the glob-like <pattern> and their values.
+3) SET <parameter> <value> -- Set parameter to value.
+4) RESETSTAT -- Reset statistics reported by INFO.
+5) REWR
+ITE -- Rewrite the configuration file.
+```
+
+查看端口：
+```bash
+127.0.0.1:6379> CONFIG GET PORT
+1) "port"
+2) "6379"
+```
+当前版本不能修改端口：
+```bash
+127.0.0.1:6379> CONFIG SET port 6378
+(error) ERR Unsupported CONFIG parameter: port
+```
+
+查看并修改连接密码：
+```bash
+127.0.0.1:6379> CONFIG GET requirepass
+1) "requirepass"
+2) ""
+127.0.0.1:6379> CONFIG SET requirepass "123"
+OK
+127.0.0.1:6379> CONFIG GET requirepass
+1) "requirepass"
+2) "123"
+```
+
+查看最大内存使用量：
+```cpp
+127.0.0.1:6379> CONFIG GET maxmemory
+1) "maxmemory"
+2) "0"
+```
+为 0 表示不限制
+
+查看全部配置：
+```bash
+127.0.0.1:6379> CONFIG GET *
+```
+
 
 
 # Redis 持久化
