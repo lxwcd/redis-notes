@@ -430,8 +430,15 @@ bind 127.0.0.1 ::1
 tcp 会话保持时间，默认 300s
 - daemonize
 默认为 yes，则 redis-server 以守护进程方式后台运行
-后天运行时会写一个 pid 文件到 /var/run/redis.pid 中
--
+后天运行时会写一个 pid 文件
+- pidfile 
+pid 文件路径默认 pidfile /var/run/redis/redis-server.pid
+- loglevel
+日志级别，默认 notice
+- logfile
+日志文件位置，默认 /var/log/redis/redis-server.log
+- databases
+数据库数量，默认 16
 
 
 
