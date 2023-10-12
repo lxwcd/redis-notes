@@ -182,71 +182,163 @@ When a partition occurs, all nodes remain available but those at the wrong end o
 需要注意的是，最终一致性并不意味着系统能够无限期地保持不一致的状态。最终一致性要求系统在合理的时间范围内，通过冲突解决和数据同步等机制，将数据副本调整为一致状态。具体的一致性时间取决于系统设计和业务需求。
 
 
-
-高并发：
-- 无状态
-横向扩展，负载均衡
-
-
-- 有状态
-如 mysql 多主，所有节点数据相同，全局校验
-如 redis 多主，每个节点数据不同
-
-
-# 缓存
+# 缓存穿透 缓存击穿 缓存雪崩
+> [What is cache penetration, cache breakdown and cache avalanche?](https://www.pixelstech.net/article/1586522853-What-is-cache-penetration-cache-breakdown-and-cache-avalanche)
 
 ## 缓存穿透
+缓存穿透（Cache Penetration）指的是请求的数据既不在缓存中，也不在数据库中，因此每次请求都要穿透缓存直接查询数据库。
+如果频繁发生缓存穿透，会导致数据库负载过高并降低系统性能。
+
+缓存穿透可能是由于恶意攻击或错误的查询导致的。
+
+解决方案：
+- 使用布隆过滤器（Bloom Filter）等技术，在缓存层面进行简单的数据过滤，当查询缓存不存在时，通过查询布隆过滤器判断数据是否存在，如果不存在则不会继续查询数据库。
+- 对于缓存穿透的查询，可以在缓存中设置一个空值（null）作为标记，避免重复查询数据库。
+
+
+3. 缓存雪崩（Cache Avalanche）：指的是缓存中的大量数据同时过期或失效，导致大量请求直接访问数据库，造成数据库负载剧增。缓存雪崩通常是由于缓存服务器故障、网络问题或大规模数据失效等情况引起的。
+
+解决方案：
+- 设置合适的缓存过期时间，避免大量数据同时过期。
+- 使用多级缓存架构，如本地缓存+分布式缓存，减少单点故障的风险。
+- 实时监控缓存状态，及时发现并解决缓存服务器故障或网络问题。
+- 针对热点数据使用热点数据预热策略，提前加载到缓存中。
+
+综合使用上述解决方案可以有效应对缓存穿透、缓存击穿和缓存雪崩问题，提高系统的稳定性和性能。
 
 
 ## 缓存击穿
+缓存击穿（Cache Breakdown）指的是一个热点数据的缓存过期或被删除，此时大量并发请求同时涌入，导致数据库负载激增。
+缓存击穿通常发生在缓存中的数据过期时，而该数据又是高频访问的热点数据。
+
+解决方案：
+- 在缓存失效前通过后台线程异步更新缓存数据，因此缓存将一直有效
+- 使用互斥锁（Mutex）或分布式锁，只允许一个请求去查询数据库并刷新缓存，其他请求等待并使用缓存数据。
+- 短暂的缓存屏障（Cache Barrier）：在缓存失效时，可以设置一个短暂的缓存屏障，阻止后续请求直接访问底层存储系统。在屏障期间，只有一个请求能够查询底层存储系统，其他请求等待结果并从缓存中获取数据。
+- 异步加载：在缓存失效的情况下，可以使用异步加载机制，让一个请求负责查询底层存储系统并将结果存入缓存，而其他请求等待结果并从缓存中获取数据。
 
 
 ## 缓存雪崩
+缓存雪崩（Cache Avalanche）是指在使用缓存系统时，大量缓存数据同时失效或过期，或者缓存服务出故障导致所有相关请求直接访问底层存储系统，造成存储系统负载剧增和性能下降的情况。
+
+解决方案：
+- 缓存失效时间随机化：为了避免大量的缓存同时失效，可以将缓存的过期时间进行随机化设置。这样可以避免在某个固定时间点大量缓存同时失效。
+- 多级缓存架构：采用多级缓存架构，如本地缓存和分布式缓存的结合，可以减少单点故障和缓存失效的风险。即使某个缓存层发生问题，仍可以从其他缓存层获取数据。
+- 异步缓存更新：在缓存失效时，可以使用异步缓存更新机制。当发现缓存失效时，不立即去更新缓存，而是在后台异步地进行缓存的重新填充或更新，以避免大量请求同时访问底层存储系统。
+- 限流和熔断机制：对于底层存储系统，可以实施限流和熔断机制，限制并发请求的数量，防止存储系统过载。
 
 
-taskset
+# Redis 简介
+> [Introduction to Redis](https://redis.io/docs/about/)
+
+Redis is an open source (BSD licensed), in-memory data structure store used as a database, cache, message broker, and streaming engine. 
+
+Redis provides data structures such as strings, hashes, lists, sets, sorted sets with range queries, bitmaps, hyperloglogs, geospatial indexes, and streams. 
+
+Redis has built-in replication, Lua scripting, LRU eviction, transactions, and different levels of on-disk persistence, and provides high availability via Redis Sentinel and automatic partitioning with Redis Cluster.
+
+You can run atomic operations on these types, like appending to a string; incrementing the value in a hash; pushing an element to a list; computing set intersection, union and difference; or getting the member with highest ranking in a sorted set.
+
+To achieve top performance, Redis works with an in-memory dataset. 
+
+Depending on your use case, Redis can persist your data either by periodically dumping the dataset to disk or by appending each command to a disk-based log. 
+You can also disable persistence if you just need a feature-rich, networked, in-memory cache.
+
+Redis supports asynchronous replication, with fast non-blocking synchronization and auto-reconnection with partial resynchronization on net split.
+
+Redis is written in ANSI C and works on most POSIX systems like Linux, *BSD, and Mac OS X, without external dependencies. 
+
+Redis 支持多种编程语言
 
 # Redis 特点
-> []()
+> [Introduction to Redis](https://redis.io/docs/about/)
 
+1. 高性能：
+Redis主要将数据存储在内存中，因此具有极高的读写性能。它使用了基于内存的数据结构和异步I/O操作，能够实现每秒数十万次的读写操作。
 
-key-value
+2. 支持多种数据结构
+Redis支持多种数据结构，包括字符串、哈希表、列表、集合、有序集合等。这使得Redis不仅仅是一个简单的键值存储系统，还可以应用于更广泛的场景，如缓存、发布订阅、计数器等。
 
+3. 持久化支持
+Redis支持数据持久化，可以将内存中的数据保存到磁盘上，以防止数据丢失。它提供了两种持久化方式：RDB快照和AOF日志。RDB快照是将Redis在某个时间点的数据保存到磁盘上，而AOF日志则是将每个写操作追加到日志文件中，以便恢复数据。
 
-较少数据
-持久化
+4. 分布式支持
+Redis提供了集群模式，能够将数据分布在多个节点上，以提高容量和性能。Redis集群使用分片技术将数据分布在多个节点上，并提供了自动数据迁移和故障转移的机制，以保证数据的高可用性。
 
+5. 丰富的功能
+除了基本的数据存储和读写操作，Redis还提供了许多丰富的功能，如事务支持、发布订阅机制、Lua脚本执行、过期设置、管道操作等。这些功能使得Redis在各种应用场景下都有很好的灵活性和扩展性。
 
-## 单线程
-处理用户请求是一个线程
-一次只运行一条命令，因此需要避免执行较慢的指令
+6. 简单易用
+Redis使用简单，具有清晰的命令和API接口，易于学习和使用。它支持多种编程语言的客户端库，开发人员可以方便地与Redis进行交互。
 
+7. 单线程处理用户请求
+> [Redis 线程模型](https://xiaolincoding.com/redis/base/redis_interview.html#redis-线程模型)
 
-还有其他线程，如做持久化的线程，主从复制等线程
+在大多数情况下，Redis是以单线程方式处理用户请求的。
 
+Redis采用单线程模型是为了避免多线程带来的线程切换开销和锁竞争等问题，从而提高系统的性能和响应速度。
+通过单线程模型，Redis可以避免多线程并发访问共享数据的竞争和同步开销。
 
-- 纯内存
-放少量数据
-- 非阻塞
+然而，Redis 程序本身并非单线程，例如，在后台进行持久化操作时，Redis会使用额外的线程进行异步磁盘写入，以避免阻塞主线程的执行。
 
-
-
-多实例：多个实例
+此外，从Redis 6.0版本开始，引入了多线程模型的实验性支持。这个多线程模型称为RedisGears，用于处理复杂的计算和数据处理任务。RedisGears允许用户编写自定义的Lua脚本，利用多个线程并行执行任务，以提高处理速度。
 
 
 # Redis 常见应用场景
-- 缓存
-网站
+## 缓存
+Redis 性能高，10W QPS (Queries Per Second)
 
-- Session 共享
+1. 数据库查询缓存：将频繁查询的数据缓存到Redis中，减少对数据库的访问压力。例如，将经常请求的用户配置信息、商品信息或热门文章列表缓存到Redis中，提高读取性能。
+
+2. 页面级缓存：将完整的页面内容或页面片段缓存到Redis中，避免重复渲染和数据库查询。当多个用户请求相同的页面时，可以直接从Redis中获取缓存结果，减少服务器的负载和响应时间。
+
+3. API缓存：将API请求的响应结果缓存到Redis中。例如，将第三方API的响应数据缓存到Redis中，避免频繁请求该API，提高系统的响应速度和可靠性。
+
+4. 用户会话缓存：将用户的会话信息存储在Redis中，在分布式系统中实现会话共享和状态管理。用户登录信息、权限验证令牌等可以存储在Redis中，提供快速的会话访问和验证。
+
+5. 全页缓存：将整个网站或Web应用的静态页面缓存到Redis中，以加速页面加载和提供静态内容。这对于高访问量的网站或内容不经常变化的页面特别有效。
+
+6. 热点数据缓存：将热门或高频访问的数据缓存到Redis中，以提供快速的访问速度。例如，将热门商品的信息、用户关注列表或推荐结果缓存到Redis中，以提高系统的响应性能。
+
+7. 频率限制器：使用Redis的计数器和过期时间等功能实现频率限制。可以限制用户在一定时间内的请求次数，用于防止恶意请求、保护API和资源。
+
+## Session 共享
 Web集群中的多服务器间的 session 共享
+将用户的会话信息存储在Redis中，在分布式系统和负载均衡环境中很有用。
 
-- 计数器
-商品访问排行榜、浏览器、粉丝数、点赞、评论等
+## 计数器和统计
+Redis的原子操作和高性能使其成为计数器和统计数据的理想选择。
+它可以用于实时统计在线用户数量、页面点击次数、点赞数等。
 
-- 社交
-- 
+## 实时排行榜
+Redis的有序集合数据结构和排序功能使其非常适合实时排行榜的构建。
+它可以存储和更新用户的得分或指标，并支持快速的排名查询。
 
+## 消息队列
+Redis的发布订阅机制和列表数据结构使其成为一个可靠的消息中间件和队列系统。
+它可以实现异步任务处理、消息发布和订阅、实时通知等功能。
+
+1. 异步任务处理：将需要异步执行的任务放入Redis的消息队列中，消费者从队列中获取任务并执行。这种方式可以将任务的执行与请求的响应分离，提高系统的并发处理能力和响应速度。
+
+2. 发布/订阅模式：Redis的发布/订阅功能可以用作简单的消息发布和订阅系统。发布者将消息发布到指定的频道，订阅者可以订阅感兴趣的频道并接收相应的消息。
+
+3. 实时通知和推送：将实时通知和推送消息放入Redis的消息队列中，订阅者可以实时接收到相关的通知和推送消息。这在实时聊天、实时更新和实时事件通知等场景中非常有用。
+
+4. 任务调度：使用Redis的消息队列实现任务调度和定时任务。生产者将需要执行的任务放入队列中，消费者按照指定的时间或条件从队列中获取任务并执行。
+
+5. 日志处理：将系统产生的日志消息放入Redis的消息队列中，消费者可以异步地处理和存储日志数据。这可以减轻日志写入对系统性能的影响，并提供灵活的日志处理能力。
+
+6. 数据同步：将需要同步的数据变更操作放入Redis的消息队列中，消费者可以接收到这些变更操作并进行相应的数据同步或更新。
+
+7. 分布式系统协调：Redis的消息队列可以用于分布式系统的协调和通信。不同的服务节点可以通过Redis的消息队列进行消息交换，实现任务分配、状态同步和分布式锁等功能。
+
+需要注意的是，Redis的消息队列是基于发布/订阅模型实现的，而不是像专业的消息队列中间件（如RabbitMQ或Kafka）那样具有高级特性。因此，在选择Redis作为消息队列时，需要根据具体的需求和场景权衡其功能和性能。
+
+## 地理位置
+Redis的地理位置数据结构（Geo）可以存储地理坐标和位置信息，并支持空间查询和距离计算，适用于地理位置相关的应用，如附近的人、地理围栏等。
+
+## 分布式锁
+Redis提供了分布式锁的实现，可以用于在分布式环境中实现资源的互斥访问和并发控制。
 
 
 # Redis 慢查询配置
