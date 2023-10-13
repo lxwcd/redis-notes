@@ -442,6 +442,7 @@ Redis 命令行接口 redis-cli
 
 ## 配置文件配置
 `dpkg -L redis-server` 查看配置文件的位置 `/etc/redis/redis.conf`
+
 ### 基本配置
 - 默认监听地址为本机
 ```bash
@@ -677,19 +678,44 @@ requirepass 123456
 # aclfile /etc/redis/users.acl
 ```
 
+# Redis 数据库
+> [select](https://redis.io/commands/select/)
+
+Selectable Redis databases are a form of namespacing: all databases are still persisted in the same RDB / AOF file.
+However different databases can have keys with the same name, and commands like FLUSHDB, SWAPDB or RANDOMKEY work on specific databases.
+
+初始默认的数据库编号为 0，默认数据库格式为 16，在配置文件中设置
+```bash
+# Set the number of databases. The default database is DB 0, you can select
+# a different one on a per-connection basis using SELECT <dbid> where
+# dbid is a number between 0 and 'databases'-1
+databases 16
+```
+
+不同数据库在不同的名称空间中进行隔离，因此可以有相同的 key，但都在一个物理文件 RDB 或 AOF 文件中
+
+通过 SELECT 命令可以切换数据库
+```bash
+127.0.0.1:6379> get msg
+"hello"
+127.0.0.1:6379> select 1
+OK
+127.0.0.1:6379[1]> get msg
+(nil)
+```
+
 # Redis 常用命令
 > [commands](https://redis.io/commands/)
 
-## info 查看信息
-> [info](https://redis.io/commands/info/)
+- redis 命令不区分大小写，但键值区分大小写
 
+## INFO 查看信息
+> [INFO](https://redis.io/commands/info/)
 
 ### server 查看当前节点信息
 #### run_id
 唯一标识该节点
 重启后会变化
-
-
 
 ### replication 查看主从复制信息
 主节点查看：
