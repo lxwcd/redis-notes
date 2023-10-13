@@ -421,6 +421,11 @@ Redis 命令行接口 redis-cli
 如果有密码，可以通过 `-a` 指定密码
 
 
+# Redis 线程模型
+> [Redis Multi-Threaded Network Model](https://www.sobyte.net/post/2022-03/redis-multi-threaded-network-model/)
+> [Redis 线程模型](https://www.xiaolincoding.com/redis/base/redis_interview.html#redis-线程模型)
+
+
 # Redis 配置
 > [Redis configuration file example](https://redis.io/docs/management/config-file/)
 
@@ -601,6 +606,60 @@ OK
 ```bash
 127.0.0.1:6379> CONFIG GET *
 ```
+# Redis 用户密码管理 ACL
+> [acl](https://redis.io/docs/management/security/acl/)
+
+ACL 可以指定特定用户的权限，如对一些设置权限，不让其使用一些危险命令等
+
+- 默认有一个用户 `default`  
+```bash
+127.0.0.1:6379> ACL USERS
+1) "default"
+127.0.0.1:6379> ACL list
+1) "user default on #8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92 ~* &* +@all"
+```
+
+上面的符号标识的权限为：
+> to access every possible key (~*) and Pub/Sub channel (&*), 
+> and be able to call every possible command (+@all)
+
+
+- default 用户的密码设置可以在配置文件中的 `requirepass` 中指定
+```bash
+# IMPORTANT NOTE: starting with Redis 6 "requirepass" is just a compatibility
+# layer on top of the new ACL system. The option effect will be just setting
+# the password for the default user. Clients will still authenticate using
+# AUTH <password> as usually, or more explicitly with AUTH default <password>
+# if they follow the new protocol: both will work.
+#
+# The requirepass is not compatible with aclfile option and the ACL LOAD
+# command, these will cause requirepass to be ignored.
+#
+# requirepass foobared
+requirepass 123456
+```  
+这种方式是为了兼容旧版本，通过 `redis-cli` 连接服务器后，仍要用 `AUTH [username] password` 方式输入密码验证
+```bash
+127.0.0.1:6379> auth [username] password
+```
+
+- 如果使用 ACL 文件，则 `requirepass` 会被忽略
+默认未开启该选项
+```bash
+# Using an external ACL file
+#
+# Instead of configuring users here in this file, it is possible to use
+# a stand-alone file just listing users. The two methods cannot be mixed:
+# if you configure users here and at the same time you activate the external
+# ACL file, the server will refuse to start.
+#
+# The format of the external ACL user file is exactly the same as the
+# format that is used inside redis.conf to describe users.
+#
+# aclfile /etc/redis/users.acl
+```
+
+
 
 # Redis 常用命令
 > [commands](https://redis.io/commands/)
@@ -950,61 +1009,6 @@ The rewrite will be only triggered by Redis if there is not already a background
 - If a Redis child is creating a snapshot on disk, the AOF rewrite is scheduled but not started until the saving child producing the RDB file terminates.
 - If an AOF rewrite is already in progress the command returns an error and no AOF rewrite will be scheduled for a later time.
 - If the AOF rewrite could start, but the attempt at starting it fails (for instance because of an error in creating the child process), an error is returned to the caller.
-
-
-# Redis 用户密码管理 ACL
-> [acl](https://redis.io/docs/management/security/acl/)
-
-ACL 可以指定特定用户的权限，如对一些设置权限，不让其使用一些危险命令等
-
-- 默认有一个用户 `default`  
-```bash
-127.0.0.1:6379> ACL USERS
-1) "default"
-127.0.0.1:6379> ACL list
-1) "user default on #8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92 ~* &* +@all"
-```
-
-上面的符号标识的权限为：
-> to access every possible key (~*) and Pub/Sub channel (&*), 
-> and be able to call every possible command (+@all)
-
-
-- default 用户的密码设置可以在配置文件中的 `requirepass` 中指定
-```bash
-# IMPORTANT NOTE: starting with Redis 6 "requirepass" is just a compatibility
-# layer on top of the new ACL system. The option effect will be just setting
-# the password for the default user. Clients will still authenticate using
-# AUTH <password> as usually, or more explicitly with AUTH default <password>
-# if they follow the new protocol: both will work.
-#
-# The requirepass is not compatible with aclfile option and the ACL LOAD
-# command, these will cause requirepass to be ignored.
-#
-# requirepass foobared
-requirepass 123456
-```  
-这种方式是为了兼容旧版本，通过 `redis-cli` 连接服务器后，仍要用 `AUTH [username] password` 方式输入密码验证
-```bash
-127.0.0.1:6379> auth [username] password
-```
-
-- 如果使用 ACL 文件，则 `requirepass` 会被忽略
-默认未开启该选项
-```bash
-# Using an external ACL file
-#
-# Instead of configuring users here in this file, it is possible to use
-# a stand-alone file just listing users. The two methods cannot be mixed:
-# if you configure users here and at the same time you activate the external
-# ACL file, the server will refuse to start.
-#
-# The format of the external ACL user file is exactly the same as the
-# format that is used inside redis.conf to describe users.
-#
-# aclfile /etc/redis/users.acl
-```
-
 
 
 
