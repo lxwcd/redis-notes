@@ -521,6 +521,11 @@ auto-aof-rewrite-percentage 100
 auto-aof-rewrite-min-size 64mb
 ```
 
+```bash
+# 是否加载由于某些原因导致尾部异常的 AOF 文件
+aof-load-truncated yes
+```
+
 ### 内存管理
 
 ### Redis 慢查询配置
@@ -873,7 +878,10 @@ rdb 文件由 rdbLoad 函数完成
 
 服务器在载入 rdb 文件期间，会一直处于阻塞状态
 
+
 ## AOF
+> [persistence](https://redis.io/docs/management/persistence/)
+
 - Append Only File
 - 保存的是 Redis 服务器执行的写命令来记录数据库状态
 - AOF 功能开启后，第一次会做一个完全备份，备份所有数据，后续再进行增量备份，即备份上次备份后新更新的写指令
@@ -881,6 +889,16 @@ rdb 文件由 rdbLoad 函数完成
 如果已有数据，保存的是 rdb 文件，然后修改配置文件 `appendonly yes`，重启服务，此时服务器不会加载 rdb 文件，
 重启服务 `systemctl restart redis-server.service` 后，看到 `/var/lib/redis` 目录下有一个 `appendonly.aof`的空文件，此时利用 `redis-cli` 连接到服务器，查看之前的数据都没了，因为服务器加载的是空的 AOF 文件而非之前保存的 RDB 文件
 因此，这种情况需要先用命令修改配置`configure set appendonly on`，动态开启 AOF 后会自动备份数据，进行一次完全备份，在备份完后再修改配置文件重启，后续就会恢复之前的数据了
+
+AOF 优点：
+- 更安全，三种同步策略，默认每秒方式最多只丢失 1s 数据
+- 用追加记录命令的方式，即使宕机，也不会破坏已存在的内容
+- 当 AOF 文件过大时，可以在后台自动重写
+- AOF 采用易理解的日志格式记录操作的命令，方便读取文件内容进行分析修改
+
+AOF 缺点：
+- AOF 文件通常比 RDB 文件大
+- AOF 采用默认的每秒同步策略时比 RDB 备份的方式慢
 
 ### AOF 持久化的实现
 - AOF 文件的写入分为命令追加，文件写入和文件同步三个步骤
@@ -924,6 +942,15 @@ Redis 服务器创建一个新的 AOF 文件来替代旧的 AOF 文件，新的�
 ```bash
 Fsync() also blocks the process for all the time needed to complete the write, and if this is not enough, on Linux it will also block all the other threads that are writing against the same file.
 ```
+
+#### bgrewriteaof 手动执行重写 AOF 命令
+> [bgrewriteaof](https://redis.io/commands/bgrewriteaof/) 
+
+The rewrite will be only triggered by Redis if there is not already a background process doing persistence.
+- If a Redis child is creating a snapshot on disk, the AOF rewrite is scheduled but not started until the saving child producing the RDB file terminates.
+- If an AOF rewrite is already in progress the command returns an error and no AOF rewrite will be scheduled for a later time.
+- If the AOF rewrite could start, but the attempt at starting it fails (for instance because of an error in creating the child process), an error is returned to the caller.
+
 
 # Redis 用户密码管理 ACL
 > [acl](https://redis.io/docs/management/security/acl/)
