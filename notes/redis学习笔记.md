@@ -425,6 +425,15 @@ Redis 命令行接口 redis-cli
 > [Redis Multi-Threaded Network Model](https://www.sobyte.net/post/2022-03/redis-multi-threaded-network-model/)
 > [Redis 线程模型](https://www.xiaolincoding.com/redis/base/redis_interview.html#redis-线程模型)
 
+- Redis V6.0 后 Redis 采用多线程 I/O 网络模式
+多线程方式默认仍是单线程处理客户请求，执行命令，其他后台线程用来处理其他事务
+```bash
+# So for instance if you have a four cores boxes, try to use 2 or 3 I/O
+# threads, if you have a 8 cores, try to use 6 threads. In order to
+# enable I/O threads use the following configuration directive:
+#
+# io-threads 4
+```
 
 # Redis 配置
 > [Redis configuration file example](https://redis.io/docs/management/config-file/)
