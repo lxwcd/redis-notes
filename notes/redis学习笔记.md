@@ -457,8 +457,7 @@ pid 文件路径默认 pidfile /var/run/redis/redis-server.pid
 数据库数量，默认 16
 
 ### 快照配置
-配置服务器自动间隔一段时间执行 bgsave 命令保存 rdb 文件
-
+1. 配置服务器自动间隔一段时间执行 bgsave 命令保存 rdb 文件
 格式为 `save <seconds> <changes>`
 
 默认设置：
@@ -472,6 +471,38 @@ save 60 10000
 - 900s 内修改至少 1 次
 - 300s 内修改至少 10 次
 - 60s 内修改至少 10000 次
+
+2. 其他设置
+```bash
+# 快照保存失败后能否继续写入 
+stop-writes-on-bgsave-error yes
+
+# 是否允许压缩 rdb 文件
+rdbcompression yes
+
+# rdb 文件的文件名，新创建的文件因为同名会覆盖旧的文件
+dbfilename dump.rdb
+
+# rdb 文件的存放目录
+dir /var/lib/redis
+```
+
+### AOF 文件管理
+AOF 模式默认未开启
+```bash
+appendonly no
+```
+默认使用的是 RDB 持久化，如果 AOF 模式开启，则 AOF 优先级会更高，启动时 redis 会加载 AOF 
+
+其他配置：
+```bash
+appendfilename "appendonly.aof"
+
+# AOF 持久化策略
+# appendfsync always
+appendfsync everysec
+# appendfsync no
+```
 
 ### 内存管理
 
@@ -782,6 +813,7 @@ You can disable persistence completely. This is sometimes used when caching.
 - 存放保存那一刻的快照，保存快照的时间可以用户自己定义
 如果每 2 分钟保存一次快照，则最多丢失 2 分钟的数据
 - 快照为 .rdb 文件，默认每次新保存的快照覆盖旧的快照，只有一个快照文件
+- RDB 保存的是数据库中的键值对数据
 
 优点：
 - 压缩的二进制文件，可以通过该文件恢复保存那一刻数据库的状态
@@ -823,21 +855,9 @@ rdb 文件由 rdbLoad 函数完成
 
 服务器在载入 rdb 文件期间，会一直处于阻塞状态
 
-
-
-二进制文件
-save 保存的数据有哪些？
-添加的 key 等，修改的密码，配置等不会保存
-
-save 执行会阻塞，不保存完，则其他命令无法执行，单线程，save 时用的原来的线程
-
-bgsave fork 一个子进程执行备份，后台保存，备份时生成一个 temp-进程号.rdb 文件，备份完成后覆盖原来的 dump.rdb，防止保存的过程中出故障，因此在保存完后再覆盖
-
-保存当前的快照，当前的结果，二进制文件，不记录过程
-
-
-
 ## AOF
+- Append Only File
+- 保存的是 Redis 服务器执行的写命令来记录数据库状态
 相当于增量备份
 
 先做一次完全备份，.rdb 文件，后续再做增量备份
