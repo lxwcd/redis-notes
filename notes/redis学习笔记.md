@@ -615,6 +615,7 @@ OK
 ```bash
 127.0.0.1:6379> CONFIG GET *
 ```
+
 # Redis 用户密码管理 ACL
 > [acl](https://redis.io/docs/management/security/acl/)
 
@@ -631,6 +632,14 @@ ACL 可以指定特定用户的权限，如对一些设置权限，不让其使�
 上面的符号标识的权限为：
 > to access every possible key (~*) and Pub/Sub channel (&*), 
 > and be able to call every possible command (+@all)
+
+默认没有密码
+```bash
+127.0.0.1:6379> ACL USERS
+1) "default"
+127.0.0.1:6379> ACL LIST
+1) "user default on nopass ~* +@all"
+```
 
 
 - default 用户的密码设置可以在配置文件中的 `requirepass` 中指定
@@ -667,8 +676,6 @@ requirepass 123456
 #
 # aclfile /etc/redis/users.acl
 ```
-
-
 
 # Redis 常用命令
 > [commands](https://redis.io/commands/)
