@@ -1,6 +1,9 @@
 Redis 学习笔记
 
 # 资源
+> Redis 设计与实现
+> [Redis 官网](https://redis.io/docs/)
+> [图解 Redis](https://www.xiaolincoding.com/redis/)
 
 
 # NoSQL
@@ -454,6 +457,21 @@ pid 文件路径默认 pidfile /var/run/redis/redis-server.pid
 数据库数量，默认 16
 
 ### 快照配置
+配置服务器自动间隔一段时间执行 bgsave 命令保存 rdb 文件
+
+格式为 `save <seconds> <changes>`
+
+默认设置：
+```bash
+save 900 1
+save 300 10
+save 60 10000
+```
+
+则只要三个条件之一满足，即会执行 bgsave：
+- 900s 内修改至少 1 次
+- 300s 内修改至少 10 次
+- 60s 内修改至少 10000 次
 
 ### 内存管理
 
@@ -749,7 +767,7 @@ OK
 
 # Redis 持久化
 > 官方文档：[Redis persistence](https://redis.io/docs/management/persistence/)
-> 官方推荐的博客：[Redis persistence demystified](http://oldblog.antirez.com/post/redis-persistence-demystified.html)
+> 官方博客：[Redis persistence demystified](http://oldblog.antirez.com/post/redis-persistence-demystified.html)
 
 持久化指将数据持久化保存，redis 提供下面几种持久化方案：
 - RDB
@@ -766,7 +784,7 @@ You can disable persistence completely. This is sometimes used when caching.
 - 快照为 .rdb 文件，默认每次新保存的快照覆盖旧的快照，只有一个快照文件
 
 优点：
-- 压缩的文件，可以通过该文件恢复保存那一刻数据库的状态
+- 压缩的二进制文件，可以通过该文件恢复保存那一刻数据库的状态
 - RBD 文件保存是父进程通过 fork 生产子进程执行，因此不会占用父进程执行磁盘 I/O 操作
 - 与 AOF 相比，恢复数据更快
 - On replicas, RDB supports partial resynchronizations after restarts and failovers
@@ -778,21 +796,32 @@ You can disable persistence completely. This is sometimes used when caching.
 ### RDB 快照的保存方式
 > [RDB 快照是如何实现的呢？](https://xiaolincoding.com/redis/base/redis_interview.html#rdb-快照是如何实现的呢)
 
+rdb 文件都是由 rdbSave 函数完成，只是调用方式不同
+
 #### save 
 > [save](https://redis.io/commands/save/)
 
 
-
+save 命令是同步保存 rdb 文件，会阻塞主进程直到文件创建完成
+redis 6 版本后使用多线程，默认处理客户端命令的还是一个主线程，这里 save 命令阻塞的是主线程还是主进程和多线程的实现方式有关
+（多线程是在用户空间管理还是由内核管理）
 
 #### bgsave
+> [bgsave](https://redis.io/commands/bgsave/)
 
-## bgsave
-background save
-主进程 fork 一个子进程，子进程创建一个 rdb snapshot 作为 temporary file，在临时文件生成完成后，才会通过一个 atomic rename system call 用临时文件替代原来的 rdb 文件
+bgsave 命令则是异步保存 rdb 文件，主进程 fork 一个子进程后即返回，子进程来保存文件，主进程继续执行其他命令
+
+bgsave 命令执行期间，客户端发送 save 或 bgsave 命令会被服务器拒绝，因为两个命令都是调用 rdbSave 函数，防止产生竞争条件
+
+bgsave 命令执行期间，客户端发送 bgrewriteaof 命令会被拒绝，防止两个子进程同时执行大量的磁盘写入操作
 
 
+### RDB 文件的载入
+rdb 文件是在服务器启动时自动执行的，没有专门的载入 rdb 文件的命令，只要 Redis 服务器启动时检测到 rdb 文件，则自动载入
 
-相关配置：`stop-writes-on-bgsave-error no`
+rdb 文件由 rdbLoad 函数完成
+
+服务器在载入 rdb 文件期间，会一直处于阻塞状态
 
 
 
