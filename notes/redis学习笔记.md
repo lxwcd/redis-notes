@@ -1643,7 +1643,65 @@ The rewrite will be only triggered by Redis if there is not already a background
 (integer) 1
 ```
 
-# Redis 主从复制和哨兵
+# Redis 主从复制
+> [Redis replication](https://redis.io/docs/management/replication/)
+> [主从复制是怎么实现的？](https://www.xiaolincoding.com/redis/cluster/master_slave_replication.html#第一次同步)
+
+## 启动主从同步
+> [replicaof](https://redis.io/commands/replicaof/)
+
+从节点命令启动方式
+```bash
+replicaof masterIP port
+```
+
+在从节点配置文件中配置
+从节点的配置文件中需要指明 master 的 ip，端口和密码（如果 master 开启了密码保护）
+```bash
+# replicaof <masterip> <masterport>
+
+# If the master is password protected (using the "requirepass" configuration
+# directive below) it is possible to tell the replica to authenticate before
+# starting the replication synchronization process, otherwise the master will
+# refuse the replica request.
+#
+# masterauth <master-password>
+```
+上面的 `replicaof` 和 `masterauth` 两项 
+如果 master 配置了 ACL，还需设置
+改完后重启服务
+
+
+## 取消主从同步
+```bash
+replicaof no one
+```
+
+## 验证主从同步
+观察日志 `/var/log/redis/redis-server.log` 
+
+`INFO replication` 查看状态
+
+## 主从复制的过程
+分为全量同步和增量同步
+
+1. full resync
+- 建立连接，验证身份
+- 从节点发送 PSYNC 命令
+- 主节点发送 FULLRESYNC 命令，包括 runID 和复制偏移量 offset
+runID 用于唯一标识该节点，offset 表示主节点复制到从节点的数据偏移量
+- 从节点保存主节点的信息
+- 主节点执行 bgsave 命令生成 RDB 文件，然后发送给从节点
+期间主节点新的数据保存在 replication buffer 中
+- 从节点丢弃旧数据，加载主节点发送的 RDB 文件，加载完成后给主节点发送确认消息
+1. 
+
+# Redis 主从复制配置哨兵
+> [Redis replication](https://redis.io/docs/management/replication/)
+> [High availability with Redis Sentinel](https://redis.io/docs/management/sentinel/)
+
+包安装需要额外安装 redis-sentinel，会有一个配置文件 `/etc/redis/sentinel.conf`
+
 1. 主从结构实现高可用，主节点故障时将从节点提升为主节点
 2. 主从结构也可实现负载均衡，从节点可对外提供读操作，但写操作操作只能在主节点
 从节点也可设置可写，但只能写临时的数据，如果主节点将数据同步到从节点，则从节点写的数据会丢失
@@ -1669,19 +1727,14 @@ replica-read-only yes
 ```bash
 bind 0.0.0.0 -::1
 ```
-5. 主节点和从节点最好都开启持久化功能
-```bash
-appendonly yes
-```
-6. 哨兵是为了自动对 master 和 replica 节点切换，且不影响业务
+5. 哨兵是为了自动对 master 和 replica 节点切换，且不影响业务
 哨兵可以在主节点出现故障后自动将一个从节点提升为主节点
-7. 哨兵机制需要在多个节点上运行同一个 sentinel 进程，是一个分布式系统
+6. 哨兵机制需要在多个节点上运行 sentinel 进程，是一个分布式系统
 哨兵可以在单独的服务器上配置，或者和 redis server 在一起配置
 通常需要多个哨兵，且为奇数，即哨兵至少 3 个 
 每个 sentinel 进程之间通过流言协议（gossip protocols）来接受 master 进程是否正常
 sentinel 进程间通过投票协议（agreement protocols）来决定是执行故障转移，即提升从节点为新 master，
-因此 sentinel 节点的数目最好为奇数，配置文件（sentinel 的配置文件）中可以指定当几个哨兵认为 master
-节点下线即提升新 master：
+因此 sentinel 节点的数目最好为奇数，配置文件（sentinel 的配置文件）中可以指定当几个哨兵认为 master 节点下线即提升新 master：
 ```bash
 # sentinel monitor <master-name> <ip> <redis-port> <quorum>
 #
@@ -1705,9 +1758,8 @@ sentinel monitor mymaster 172.27.0.10 6379 2
 # sentinel auth-pass <master-name> <password>
 sentinel auth-pass mymaster 123456
 ```
-当一个哨兵判断主节点下线，只是自己的主观判断，即 `SDOWN`，只有达到指定位数的哨兵均判断为 `SDOWN`，
-最后才能得出 `ODOWN`，然后更换主节点
-哨兵在跟换 master 节点前会进行投票来选出一个 leader，再决定将谁提升为 master 节点
+当一个哨兵判断主节点下线，只是自己的主观判断，即 `SDOWN`，只有达到指定位数的哨兵均判断为 `SDOWN`，最后才能得出 `ODOWN`，然后更换主节点
+哨兵在更换 master 节点前会进行投票来选出一个 leader，再决定将谁提升为 master 节点
 ```bash
 7:X 01 Jul 2023 15:49:50.236 # +sdown master mymaster 172.27.0.10 6379
 7:X 01 Jul 2023 15:49:50.282 * Sentinel new configuration saved on disk
@@ -1716,7 +1768,7 @@ sentinel auth-pass mymaster 123456
 7:X 01 Jul 2023 15:49:50.286 # +vote-for-leader 083ae14f7457fc8f64a0fb167017a07db4efd4f7 1
 7:X 01 Jul 2023 15:49:50.309 # +odown master mymaster 172.27.0.10 6379 #quorum 3/2
 ```
-8. 哨兵选择新的 master 时，和 redis.conf 中配置的优先级有关，默认的优先级为 100
+7. 哨兵选择新的 master 时，和 redis.conf 中配置的优先级有关，默认的优先级为 100
 ```bash
 # The replica priority is an integer number published by Redis in the INFO
 # output. It is used by Redis Sentinel in order to select a replica to promote
@@ -1733,11 +1785,12 @@ sentinel auth-pass mymaster 123456
 # By default the priority is 100.
 replica-priority 100
 ``` 
-9.  sentinel 不是代理而是配置中心
+8.  sentinel 不是代理而是配置中心
 
-
-
-
+9. 每个 sentinel 进程会定时向其他 sentinel、master 和 slave 发送消息以确认对方是否存活
+sentinel 定时对 master 和 slave 执行 info 来发现 slave 节点和确定主从关系
+sentinel 定时通过 master 节点的 channel 交换信息，利用 pub/sub 模式，通过 __sentinel__:hello 频道交换对节点的看法和自身信息
+sentinel 定时对其他 sentinel 和 redis 执行 ping
 
 ## 主节点配置
 主节点也配置 `masterauth`，防止主节点故障后恢复成为从节点
@@ -1800,11 +1853,10 @@ sentinel auth-pass mymaster 123456
 # if you want to be able to monitor these instances with Sentinel.
 #
 ```
-- 指定只从集群的名字，默认为 mymaster，指定初始 master 的 ip 和端口，
+- 指定只集群的名字，默认为 mymaster，指定初始 master 的 ip 和端口，
 最后的 2 为投票时多少哨兵认为 SDOWN 就认为 ODOWN
 
 - 需要指定一个密码来访问 master 和 replicas，最好所有的密码设置一致
-
 
 
 ## 故障转移过程（failover）
