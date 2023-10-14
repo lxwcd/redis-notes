@@ -723,6 +723,24 @@ repl-disable-tcp-nodelay no
 ```
 根据设置，如果至少 3 个 slave 的延迟时间超过 10s，则此 master 将不能执行写操作
 
+8. 从节点优先级
+```bash
+# The replica priority is an integer number published by Redis in the INFO
+# output. It is used by Redis Sentinel in order to select a replica to promote
+# into a master if the master is no longer working correctly.
+#
+# A replica with a low priority number is considered better for promotion, so
+# for instance if there are three replicas with priority 10, 100, 25 Sentinel
+# will pick the one with priority 10, that is the lowest.
+#
+# However a special priority of 0 marks the replica as not able to perform the
+# role of master, so a replica with priority of 0 will never be selected by
+# Redis Sentinel for promotion.
+#
+# By default the priority is 100.
+replica-priority 100
+```
+用于哨兵模式中，主节点出故障，哨兵提升从节点为主节点时的参考，数值低的更可能被选择为主节点
 
 ## config 命令修改配置
 config 命令可以查看当前 redis 的配置，并且在不重启的情况下动态修改 redis 配置
@@ -1402,6 +1420,12 @@ which the slaves use to identify and connect to the correct master.
 新的 master 节点对比 offset 后，如果 offset 在有效范围内，则只用将相差的部分数据同步给从节点，
 该过程即为 `PSYNC`，即 partial synchronization
 
+官网解释：
+![](img/2023-10-14-21-12-08.png)
+
+当从节点提升为新主节点后，保留旧主节点 replication ID，这样其他从节点可以用旧的 replication ID 来和新主节点同步，且只用做半同步
+In this way, when other replicas will sync with the new master, they will try to perform a partial resynchronization using the old master replication ID. 
+
 ```bash
 127.0.0.1:6379> info replication
 # Replication
@@ -1827,8 +1851,7 @@ replicaof no one
 `INFO replication` 查看状态
 
 ## 主从复制的过程
-> []()
-
+> [主从复制是怎么实现的？](https://www.xiaolincoding.com/redis/cluster/master_slave_replication.html)
 
 1. 全量复制 full resync
 - 建立连接，验证身份
@@ -1895,10 +1918,10 @@ master 节点数据同步到一个 slave，然后该 slave 节点再将数据同
 > [主从复制中两个 Buffer(replication buffer 、repl backlog buffer)有什么区别？](https://www.xiaolincoding.com/redis/cluster/master_slave_replication.html#主从复制中两个-buffer-replication-buffer-、repl-backlog-buffer-有什么区别)
 
 
-
 # Redis 主从复制配置哨兵
 > [Redis replication](https://redis.io/docs/management/replication/)
 > [High availability with Redis Sentinel](https://redis.io/docs/management/sentinel/)
+> [为什么要有哨兵机制](https://www.xiaolincoding.com/redis/cluster/sentinel.html#为什么要有哨兵机制)
 
 包安装需要额外安装 redis-sentinel，会有一个配置文件 `/etc/redis/sentinel.conf`
 
@@ -1990,7 +2013,7 @@ replica-priority 100
 9. 每个 sentinel 进程会定时向其他 sentinel、master 和 slave 发送消息以确认对方是否存活
 sentinel 定时对 master 和 slave 执行 info 来发现 slave 节点和确定主从关系
 sentinel 定时通过 master 节点的 channel 交换信息，利用 pub/sub 模式，通过 __sentinel__:hello 频道交换对节点的看法和自身信息
-sentinel 定时对其他 sentinel 和 redis 执行 ping
+sentinel 定时对其他 sentinel 和其他建立连接的主从服务器发送 ping
 
 ## 主节点配置
 主节点也配置 `masterauth`，防止主节点故障后恢复成为从节点
@@ -2057,41 +2080,9 @@ sentinel auth-pass mymaster 123456
 最后的 2 为投票时多少哨兵认为 SDOWN 就认为 ODOWN
 
 - 需要指定一个密码来访问 master 和 replicas，最好所有的密码设置一致
+- 配置完后启动哨兵服务
 
 
-## 故障转移过程（failover）
-
-## 主从复制故障原因
-1. 硬件和软件配置不一致
-如从节点内存比主节点小
-主节点用 rename-command,从节点没有该命令
-
-
-
-
-
-CoW fork: copy-on-write
-
-
-full synchronization 和 partial synchronization
-
-主节点重启后 master_replid 变化，
-
-master_repl_offset and slave_repl_offset ?
-
-backlog：环形队列，用于复制数据到从节点的缓冲区，
-
-master_replid
-
-
-多实例用处：分摊流量，防止主节点重启而进行全量备份是一下要复制过多数据
-
-一个机器可以部分主节点，部分从节点，另一个机同样，防止主节点都在一个服务器，而服务器重启
-
-
-主从复制故障：
-
-repl-diskless-sync-delay and repl-disable-tcp-nodelay difference
 
 
 
