@@ -1625,8 +1625,18 @@ The rewrite will be only triggered by Redis if there is not already a background
 ## 发布者订阅者模式
 > [Redis Pub/Sub](https://redis.io/docs/interact/pubsub/)
 
+多个订阅者订阅某个频道，发布者发布消息后，所有订阅频道的用户都能接收到消息，类型群发消息
 
+订阅频道
+```bash
+127.0.0.1:6379> SUBSCRIBE channel01 channel02
+```
 
+发布频道消息
+```bash
+127.0.0.1:6379> PUBLISH channel01 hello
+(integer) 1
+```
 
 # Redis 主从复制和哨兵
 1. 主从结构实现高可用，主节点故障时将从节点提升为主节点
