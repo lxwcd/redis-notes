@@ -579,6 +579,151 @@ slowlog-max-len 128
 rename-command SHUTDOWN ""
 ```
 
+### 主从复制配置
+1. 复制策略
+```bash
+# Replication SYNC strategy: disk or socket.
+#
+# New replicas and reconnecting replicas that are not able to continue the
+# replication process just receiving differences, need to do what is called a
+# "full synchronization". An RDB file is transmitted from the master to the
+# replicas.
+#
+# The transmission can happen in two different ways:
+#
+# 1) Disk-backed: The Redis master creates a new process that writes the RDB
+#                 file on disk. Later the file is transferred by the parent
+#                 process to the replicas incrementally.
+# 2) Diskless: The Redis master creates a new process that directly writes the
+#              RDB file to replica sockets, without touching the disk at all.
+#
+# With disk-backed replication, while the RDB file is generated, more replicas
+# can be queued and served with the RDB file as soon as the current child
+# producing the RDB file finishes its work. With diskless replication instead
+# once the transfer starts, new replicas arriving will be queued and a new
+# transfer will start when the current one terminates.
+#
+# When diskless replication is used, the master waits a configurable amount of
+# time (in seconds) before starting the transfer in the hope that multiple
+# replicas will arrive and the transfer can be parallelized.
+#
+# With slow disks and fast (large bandwidth) networks, diskless replication
+# works better.
+repl-diskless-sync no
+```
+默认用无盘方式，即 RDB 文件先写到磁盘，然后再发送给从节点
+
+2. 无盘方式服务器延迟复制时间
+```bash
+# This is important since once the transfer starts, it is not possible to serve
+# new replicas arriving, that will be queued for the next RDB transfer, so the
+# server waits a delay in order to let more replicas arrive.
+#
+# The delay is specified in seconds, and by default is 5 seconds. To disable
+# it entirely just set it to 0 seconds and the transfer will start ASAP.
+repl-diskless-sync-delay 5
+```
+
+3. 复制积压缓冲区的大小
+```bash
+# Set the replication backlog size. The backlog is a buffer that accumulates
+# replica data when replicas are disconnected for some time, so that when a
+# replica wants to reconnect again, often a full resync is not needed, but a
+# partial resync is enough, just passing the portion of data the replica
+# missed while disconnected.
+#
+# The bigger the replication backlog, the longer the replica can endure the
+# disconnect and later be able to perform a partial resynchronization.
+#
+# The backlog is only allocated if there is at least one replica connected.
+#
+# repl-backlog-size 1mb
+```
+
+4. 复制积压缓冲区的过期时间
+```bash
+# After a master has no connected replicas for some time, the backlog will be
+# freed. The following option configures the amount of seconds that need to
+# elapse, starting from the time the last replica disconnected, for the backlog
+# buffer to be freed.
+#
+# Note that replicas never free the backlog for timeout, since they may be
+# promoted to masters later, and should be able to correctly "partially
+# resynchronize" with other replicas: hence they should always accumulate backlog.
+#
+# A value of 0 means to never release the backlog.
+#
+# repl-backlog-ttl 3600
+```
+如果没有从节点连接多久后释放复制积压缓冲区
+
+5. 从节点向主节点发送 ping 命令的时间间隔
+```bash
+# Replicas send PINGs to server in a predefined interval. It's possible to
+# change this interval with the repl_ping_replica_period option. The default
+# value is 10 seconds.
+#
+# repl-ping-replica-period 10
+```
+
+6. 复制超时时间
+```bash
+# The following option sets the replication timeout for:
+#
+# 1) Bulk transfer I/O during SYNC, from the point of view of replica.
+# 2) Master timeout from the point of view of replicas (data, pings).
+# 3) Replica timeout from the point of view of masters (REPLCONF ACK pings).
+#
+# It is important to make sure that this value is greater than the value
+# specified for repl-ping-replica-period otherwise a timeout will be detected
+# every time there is low traffic between the master and the replica. The default
+# value is 60 seconds.
+#
+# repl-timeout 60
+```
+复制超时仍无法连接，则 master_link_status 显示 down 状态并记录错误日志
+
+7. 是否启用 TCP_NODELAY
+```bash
+# Disable TCP_NODELAY on the replica socket after SYNC?
+#
+# If you select "yes" Redis will use a smaller number of TCP packets and
+# less bandwidth to send data to replicas. But this can add a delay for
+# the data to appear on the replica side, up to 40 milliseconds with
+# Linux kernels using a default configuration.
+#
+# If you select "no" the delay for data to appear on the replica side will
+# be reduced but more bandwidth will be used for replication.
+#
+# By default we optimize for low latency, but in very high traffic conditions
+# or when the master and replicas are many hops away, turning this to "yes" may
+# be a good idea.
+repl-disable-tcp-nodelay no
+```
+如果设置该值，则 redis 会合并多个小的 TCP 包成一个大包再发送
+
+7. master 最少的 slave 数量
+```bash
+# It is possible for a master to stop accepting writes if there are less than
+# N replicas connected, having a lag less or equal than M seconds.
+#
+# The N replicas need to be in "online" state.
+#
+# The lag in seconds, that must be <= the specified value, is calculated from
+# the last ping received from the replica, that is usually sent every second.
+#
+# This option does not GUARANTEE that N replicas will accept the write, but
+# will limit the window of exposure for lost writes in case not enough replicas
+# are available, to the specified number of seconds.
+#
+# For example to require at least 3 replicas with a lag <= 10 seconds use:
+#
+# min-replicas-to-write 3
+# min-replicas-max-lag 10
+```
+根据设置，如果至少 3 个 slave 的延迟时间超过 10s，则此 master 将不能执行写操作
+
+
 ## config 命令修改配置
 config 命令可以查看当前 redis 的配置，并且在不重启的情况下动态修改 redis 配置
 但并非所有的配置都可以动态修改
@@ -1309,7 +1454,6 @@ The slave_repl_offset tracks the progress of the applied data, indicating the po
 为 `1` 表示真，该从节点被 sentinel 识别到，以后可以作为 failover 的备选节点使用
 
 
-
 #### repl_backlog_size
 指 master 节点中 backlog buffer 的最大尺寸，配置文件中有设置该大小：
 ```bash
@@ -1699,7 +1843,15 @@ runID 用于唯一标识该节点，offset 表示主节点复制到从节点的�
 主从服务器完成一次全量复制后，维持一个 TCP 连接，后续主服务器通过该连接将新的命令发送给从服务器
 该过程即为基于长连接的命令传播，为了避免频繁的 TCP 连接和断开
 
-命令传播阶段，从服务器默认每秒向主服务器发送心跳检测命令以检测主从服务器的连接状况
+命令传播阶段，从服务器默认每 10s 向主服务器发送心跳检测命令以检测主从服务器的连接状况
+```bash
+# Replicas send PINGs to server in a predefined interval. It's possible to
+# change this interval with the repl_ping_replica_period option. The default
+# value is 10 seconds.
+#
+# repl-ping-replica-period 10
+```
+
 3. 增量复制
 如果主从服务器断开连接一段时间又恢复，此时从服务器与主服务器的复制偏移量相差不大，未复制的数据还在主服务器的 repl_backlog_buffer中，则采用增量复制方式同步数据
 
