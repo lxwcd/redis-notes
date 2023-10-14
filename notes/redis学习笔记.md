@@ -1,9 +1,10 @@
 Redis 学习笔记
 
 # 资源
-> Redis 设计与实现
+> 书籍：Redis 设计与实现
 > [Redis 官网](https://redis.io/docs/)
 > [图解 Redis](https://www.xiaolincoding.com/redis/)
+> [在线 redis 环境](https://edu.aliyun.com/)
 
 
 # NoSQL
@@ -919,6 +920,360 @@ OK
 ```
 
 
+# Redis 数据类型
+> Redis 设计与实现
+> [Redis 常见数据类型和应用场景](https://www.xiaolincoding.com/redis/data_struct/command.html)
+
+## 字符串 String
+Redis 虽然用 C 语言写，但不是用 C 字符串，构建一种称为简单动态字符串（simple dynamic string, SDS）类型
+在不需要修改的字符串场景才会用普通的 C 字符串
+
+SDS 优点：
+- 常数复杂度获取字符串长度
+- 不会造成缓冲区溢出
+- 减少修改字符串长度时内存的重新分配次数
+- 二进制安全
+- 兼容部分 C 字符串函数
+
+### 操作单个字符串
+```bash
+127.0.0.1:6379> SET name po
+OK
+127.0.0.1:6379> GET name
+"po"
+127.0.0.1:6379> TYPE name
+string
+127.0.0.1:6379> EXISTS name
+(integer) 1
+127.0.0.1:6379> STRLEN name
+(integer) 2
+127.0.0.1:6379> DEL name
+(integer) 1
+```
+```bash
+127.0.0.1:6379> APPEND name " 00"
+(integer) 5
+127.0.0.1:6379> GET name
+"po 00"
+```
+
+### 操作多个字符串
+```bash
+127.0.0.1:6379> MSET a 1 b 2 c 3
+OK
+127.0.0.1:6379> MGET a b c
+1) "1"
+2) "2"
+3) "3"
+```
+
+### 将字符串当作计数器
+需要字符串内容为整数，不能是字符或小数
+
+```bash
+127.0.0.1:6379> SET a 1
+OK
+127.0.0.1:6379> INCR a
+(integer) 2
+127.0.0.1:6379> GET a
+"2"
+127.0.0.1:6379> INCRBY a 4
+(integer) 6
+127.0.0.1:6379> DECRBY a 5
+(integer) 1
+127.0.0.1:6379> DECR a
+(integer) 0
+127.0.0.1:6379> TYPE a
+string
+```
+
+### 设置过期时间
+> [TTL](https://redis.io/commands/ttl/)
+
+- 单位为秒
+- 返回 -1 表示永不过期
+- 返回 -2 表示该键不存在
+
+```bash
+127.0.0.1:6379> TTL a  # 获取过期时间，-1 表示不过期
+(integer) -1
+127.0.0.1:6379> TTL a2
+(integer) -2
+127.0.0.1:6379> EXPIRE a 5 # 设置过期时间为 5s
+(integer) 1
+127.0.0.1:6379> TTL a
+(integer) 2
+127.0.0.1:6379> TTL a
+(integer) -2
+127.0.0.1:6379> GET a
+j```
+
+```bash
+127.0.0.1:6379> TTL b
+(integer) 97
+127.0.0.1:6379> TTL b
+(integer) 96
+127.0.0.1:6379> PERSIST b  # 取消 b 的过期时间
+(integer) 1
+127.0.0.1:6379> TTL b
+(integer) -1
+```
+
+### 应用场景
+> [应用场景](https://www.xiaolincoding.com/redis/data_struct/command.html#应用场景)
+
+## 列表 List
+> [list](https://www.xiaolincoding.com/redis/data_struct/command.html#list)
+> 官网：[Redis lists](https://redis.io/docs/data-types/lists/)
+
+- 顺序写入，可以从最左边（头部）或最右边（尾部）插入数据
+- 一个列表最多包含 $2^{32}-1$ 个元素
+
+
+### 列表操作命令
+```bash
+127.0.0.1:6379> RPUSH list_01 a b c
+(integer) 3
+127.0.0.1:6379> LLEN list_01
+(integer) 3
+127.0.0.1:6379> LINDEX list_01 0
+"a"
+127.0.0.1:6379> LINDEX list_01 1
+"b"
+127.0.0.1:6379> LINDEX list_01 2
+"c"
+127.0.0.1:6379> LINDEX list_01 3
+(nil)
+127.0.0.1:6379> LRANGE list_01 0 -1
+1) "a"
+2) "b"
+3) "c"
+```
+```bash
+127.0.0.1:6379> LSET list_01 0 a1
+OK
+127.0.0.1:6379> LRANGE list_01 0 -1
+1) "a1"
+2) "b"
+3) "c"
+```
+```bash
+127.0.0.1:6379> LPOP list_01
+"a1"
+127.0.0.1:6379> LRANGE list_01 0 -1
+1) "b"
+2) "c"
+127.0.0.1:6379> RPOP list_01
+"c"
+127.0.0.1:6379> LRANGE list_01 0 -1
+1) "b"
+```
+
+```bash
+127.0.0.1:6379> LPUSH list_02 1 2 3
+(integer) 3
+127.0.0.1:6379> LLEN list_02
+(integer) 3
+127.0.0.1:6379> LRANGE list_02 0 -1
+1) "3"
+2) "2"
+3) "1"
+```
+
+### 应用场景
+> [应用场景](https://www.xiaolincoding.com/redis/data_struct/command.html#应用场景-2)
+
+## 哈希 Hash
+> [hash](https://www.xiaolincoding.com/redis/data_struct/command.html#hash)
+> [Redis Hashes](https://redis.io/docs/data-types/hashes/)
+
+- 一个 Hash 键的值是多个 key-value 形式的 集合
+- 无序
+
+### 常用命令
+```bash
+127.0.0.1:6379> HSET hash1 name Bob age 20 city sh
+(integer) 3
+127.0.0.1:6379> HGETALL hash1
+1) "name"
+2) "Bob"
+3) "age"
+4) "20"
+5) "city"
+6) "sh"
+127.0.0.1:6379> TYPE hash1
+hash
+127.0.0.1:6379> HSET hash1 gender male
+(integer) 1
+127.0.0.1:6379> HGETALL hash1
+1) "name"
+2) "Bob"
+3) "age"
+4) "20"
+5) "city"
+6) "sh"
+7) "gender"
+8) "male"
+127.0.0.1:6379> HGET hash1 age
+"20"
+```
+
+```bash
+127.0.0.1:6379> HDEL hash1 age gender
+(integer) 2
+127.0.0.1:6379> HGETALL hash1
+1) "name"
+2) "Bob"
+3) "city"
+4) "sh"
+```
+
+```bash
+127.0.0.1:6379> HSET hash1 age 23 gender male
+(integer) 2
+127.0.0.1:6379> HMGET hash1 age gender
+1) "23"
+2) "male"
+```
+
+如果一对键值对中 value 为整数，则可以进行计数
+```bash
+127.0.0.1:6379> HINCRBY hash1 age 3
+(integer) 26
+127.0.0.1:6379> HINCRBY hash1 city 1
+(error) ERR hash value is not an integer
+```
+
+### 应用场景
+> [应用场景](https://www.xiaolincoding.com/redis/data_struct/command.html#应用场景-3)
+
+
+## 集合 Set
+> [Set](https://www.xiaolincoding.com/redis/data_struct/command.html#set)
+> [Redis Sets](https://redis.io/docs/data-types/sets/)
+
+- 无序，值为字符串集合，值中每个字符串唯一
+- 多个集合之间可以进行交集、并集、差集等统计
+
+
+区别 List：
+- List 可以存放重复元素，Set 不可以
+- List 按照顺序存储，Set 无序
+
+### 常用命令
+```bash
+127.0.0.1:6379> SADD set01 s0 s1 s2 s3
+(integer) 4
+127.0.0.1:6379> TYPE set01
+set
+127.0.0.1:6379> SADD set02 s2 s3 s4 s5
+(integer) 4
+127.0.0.1:6379> SMEMBERS set01
+1) "s3"
+2) "s2"
+3) "s1"
+4) "s0"
+```
+```bash
+127.0.0.1:6379> SADD set01 s9 s7 s8
+(integer) 3
+127.0.0.1:6379> SMEMBERS set01
+1) "s8"
+2) "s7"
+3) "s0"
+4) "s1"
+5) "s9"
+6) "s3"
+7) "s2"
+127.0.0.1:6379> SREM set01 s7 s9
+(integer) 2
+```
+
+获取集合中元素的个数
+```bash
+127.0.0.1:6379> SCARD set01
+(integer) 5
+```
+
+判断某个元素是否是集合的成员，返回 1 则是成员
+```bash
+127.0.0.1:6379> SISMEMBER set01 s9
+(integer) 0
+127.0.0.1:6379> SISMEMBER set01 s8
+(integer) 1
+```
+
+从集合中随机挑选几个元素
+```bash
+127.0.0.1:6379> SRANDMEMBER set01 3
+1) "s0"
+2) "s1"
+3) "s2"
+```
+
+从集合中随机挑选几个元素删除
+```bash
+127.0.0.1:6379> SPOP set01 1
+1) "s2"
+127.0.0.1:6379> SCARD set01
+(integer) 4
+```
+
+集合交集
+```bash
+127.0.0.1:6379> SMEMBERS set01
+1) "s8"
+2) "s0"
+3) "s1"
+4) "s3"
+127.0.0.1:6379> SMEMBERS set02
+1) "s5"
+2) "s3"
+3) "s2"
+4) "s4"
+127.0.0.1:6379> SINTER set01 set02
+1) "s3"
+```
+
+保存交集
+```bash
+127.0.0.1:6379> SINTER set01 set02
+1) "s3"
+127.0.0.1:6379> SINTERSTORE set12 set01 set02
+(integer) 1
+127.0.0.1:6379> SMEMBERS set12
+1) "s3"
+```
+
+集合并集
+```bash
+127.0.0.1:6379> SUNION set01 set02
+1) "s8"
+2) "s5"
+3) "s0"
+4) "s1"
+5) "s4"
+6) "s3"
+7) "s2"
+127.0.0.1:6379> SUNIONSTORE set12_union set01 set02
+(integer) 7
+```
+
+集合差集
+```bash
+127.0.0.1:6379> SDIFF set01 set02
+1) "s8"
+2) "s1"
+3) "s0"
+127.0.0.1:6379> SDIFFSTORE set12_diff set01 set02
+(integer) 3
+```
+
+### 应用场景
+> [应用场景](https://www.xiaolincoding.com/redis/data_struct/command.html#应用场景-4)
+
+
+
 # Redis 持久化
 > 官方文档：[Redis persistence](https://redis.io/docs/management/persistence/)
 > 官方博客：[Redis persistence demystified](http://oldblog.antirez.com/post/redis-persistence-demystified.html)
@@ -1054,7 +1409,6 @@ The rewrite will be only triggered by Redis if there is not already a background
 
 
 
-# Redis 数据类型
 set key value 时怎么设置类型的？
 
 
