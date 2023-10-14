@@ -1875,6 +1875,16 @@ repl_backlog_buffer 是主从服务器断开连接后主服务器写入的数据
 
 然后主节点将数据写到 replication buffer 中发送给从节点
 
+## 主从复制不一致的情况
+主从复制不一致可能的情况：
+1. 配置不一致
+如设置 rename-command 导致两者执行的命令不同
+
+2. 密码错误  
+从节点配置主节点密码错误导致无法同步
+
+3. Redis 版本不一致
+
 # Redis 主从复制配置哨兵
 > [Redis replication](https://redis.io/docs/management/replication/)
 > [High availability with Redis Sentinel](https://redis.io/docs/management/sentinel/)
