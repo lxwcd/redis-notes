@@ -2083,26 +2083,89 @@ sentinel auth-pass mymaster 123456
 - 配置完后启动哨兵服务
 
 
+## 主从复制模型脑裂问题
+> [集群脑裂导致数据丢失怎么办](https://www.xiaolincoding.com/redis/base/redis_interview.html#集群脑裂导致数据丢失怎么办)
 
+脑裂（Split Brain）是分布式系统中的一个问题，指的是网络分区（网络故障或通信中断）导致系统中的节点无法相互通信，从而导致系统出现分散的、独立操作的情况。
 
+在一个分布式系统中，多个节点通过网络进行通信和协调工作。当网络发生故障或分区时，可能会导致节点之间无法互相通信。在这种情况下，系统可能会遇到脑裂问题。
 
+脑裂问题的典型情况是在主从复制或集群环境中发生。如果网络分区发生，导致主节点无法与从节点进行通信，那么从节点可能会认为主节点已经不可用，并开始自己作为主节点进行操作，形成一个独立的分支。同时，原本的主节点也可能会认为从节点已经不可用，并继续自己的操作。这样就会出现两个独立的、相互不同步的分支，各自进行操作，这就是脑裂问题。
 
-# redis cluster
+脑裂问题可能导致数据不一致、冲突操作、数据丢失等严重后果。为了避免脑裂问题，需要采取一些机制和策略，例如引入投票机制、使用多数确认等方法来确保系统中的节点能够达成一致的状态，或者引入专门的分布式一致性协议来解决这类问题。
 
-hash slot：怎么知道分配多少 slot ？
-一个 slot 并非只能对应一个 key，可能对应多个 key
+设置 master 最少的 slave 数量
+```bash
+# It is possible for a master to stop accepting writes if there are less than
+# N replicas connected, having a lag less or equal than M seconds.
+#
+# The N replicas need to be in "online" state.
+#
+# The lag in seconds, that must be <= the specified value, is calculated from
+# the last ping received from the replica, that is usually sent every second.
+#
+# This option does not GUARANTEE that N replicas will accept the write, but
+# will limit the window of exposure for lost writes in case not enough replicas
+# are available, to the specified number of seconds.
+#
+# For example to require at least 3 replicas with a lag <= 10 seconds use:
+#
+# min-replicas-to-write 3
+# min-replicas-max-lag 10
+```
+如根据设置，如果至少 3 个 slave 的延迟时间超过 10s，则此 master 将不能执行写操作
 
+# Redis cluster
+> [Scale with Redis Cluster](https://redis.io/docs/management/scaling/)
+> [Redis cluster specification](https://redis.io/docs/reference/cluster-spec/)
 
-cluster-require-full-coverage：默认 yes，什么场景需要 yes ？
+哨兵可以解决高可用并实现故障转移，但无法解决主节点单点性能瓶颈问题
 
-不支持多 database
-从节点不能读和写
-不能用 mset 同时设置多个值，不支持 mget
+主从复制和哨兵模式中，写操作只能主节点进行，因此可能造成性能瓶颈
 
-不支持级联
+因此有了分布式集群的解决方案，即多个 master 节点并行写入和故障自动转移
 
-16384 槽位固定？
+- Redus cluster 至少要三个 master 节点，slave 节点的数量不限，但一般每个 master 配置至少一个 slave
+- 采用哈希槽 hash slot 的方式分配 16384 个槽位
+每个 master 节点分配一部分槽位，分布式架构
+数据通过 hash 函数被分配到不同槽位中，每个 master 节点中存部分数据
+- Redis cluster 模式不配置哨兵，否则可能冲突
 
-集群偏斜
+## 集群通信
+每个节点中都保存有其他节点的信息，知道哪个槽位位于哪个节点上，因此当访问第一个节点未命中时，第二次访问就能命中
 
-集群最少三个节点，最好奇数节点，防止脑裂
+## 集群伸缩
+1. 集群扩容
+当有新节点加入，需要加入集群
+- 通过集群节点执行命令来和新节点握手
+- 通过脚本添加节点
+
+新节点如果是主节点，则会分摊槽位和数据
+新节点如果是从节点，则作为故障转移的备份
+
+## 集群缩容
+- 判断节点是否有槽位，有则先将槽位迁移到其他节点
+- 通知其他节点忘记该节点
+- 关闭该节点的服务
+
+## 故障转移
+1. 主观下线
+每个节点通过 ping 其他节点获取健康状态，超过一定时间无法 ping 通则主观判断该节点下线
+2. 客观下线
+每个维护一个故障列表，包含其他节点收到的信息，当半数以上的有槽的节点标记某个节点主观下线，则将该节点客观下线
+3. 故障转移
+对故障节点的所有从节点检查，查看他们和主节点的断线时间，超过一定时间则取消选举资格
+对有资格的从节点，根据复制偏移量的大小排序，偏移量最大的最优先选举，低的延迟选举
+其他主节点进行投票，票数最多的当选为新的主节点
+故障节点的槽位被分配给新主节点
+新主节点向集群节点广播 Pong 消息，表面完成故障转移
+故障节点恢复后变为从节点
+
+## 集群偏斜
+Redis cluster 运行一段时间后，可能出现倾斜现象，某个节点承担的访问较多，其他节点的数据被访问的少
+
+## Redis cluster 局限性
+集群模式下只有一个数据库 db0
+有些命令 MGET, KEYS 等不能跨节点访问
+集群模式读写分离更复杂
+客户端维护更复杂
