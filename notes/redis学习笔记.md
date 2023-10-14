@@ -1875,6 +1875,11 @@ repl_backlog_buffer 是主从服务器断开连接后主服务器写入的数据
 
 然后主节点将数据写到 replication buffer 中发送给从节点
 
+## 级联的主从复制
+master 节点数据同步到一个 slave，然后该 slave 节点再将数据同步到其他 slave 节点，即第一个 slave 节点为其他 slave 节点的 master 节点
+
+避免主节点每次要将数据复制到过多的从节点
+
 ## 主从复制不一致的情况
 主从复制不一致可能的情况：
 1. 配置不一致
@@ -1884,6 +1889,12 @@ repl_backlog_buffer 是主从服务器断开连接后主服务器写入的数据
 从节点配置主节点密码错误导致无法同步
 
 3. Redis 版本不一致
+
+## 主从复制中 replication buffer 和 repl backlog buffer
+> [Top Redis Headaches for Devops – Replication Buffer](https://redis.com/blog/top-redis-headaches-for-devops-replication-buffer/)
+> [主从复制中两个 Buffer(replication buffer 、repl backlog buffer)有什么区别？](https://www.xiaolincoding.com/redis/cluster/master_slave_replication.html#主从复制中两个-buffer-replication-buffer-、repl-backlog-buffer-有什么区别)
+
+
 
 # Redis 主从复制配置哨兵
 > [Redis replication](https://redis.io/docs/management/replication/)
