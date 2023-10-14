@@ -1622,6 +1622,9 @@ The rewrite will be only triggered by Redis if there is not already a background
 > [Manage streams and consumer groups in RedisInsight](https://redis.io/docs/ui/insight/tutorials/insight-stream-consumer/)
 
 
+## 发布者订阅者模式
+> [Redis Pub/Sub](https://redis.io/docs/interact/pubsub/)
+
 
 
 
