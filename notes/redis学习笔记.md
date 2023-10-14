@@ -556,6 +556,29 @@ slowlog-log-slower-than 10000
 slowlog-max-len 128
 ```
 
+### 安全配置
+利用 rename-command 来修改危险命令，如 FLUSHALL SHUTDOWN FLUSHDB 等
+
+```bash
+# It is possible to change the name of dangerous commands in a shared
+# environment. For instance the CONFIG command may be renamed into something
+# hard to guess so that it will still be available for internal-use tools
+# but not available for general clients.
+#
+# Example:
+#
+# rename-command CONFIG b840fc02d524045429941cc15f59e41cb7be6c52
+#
+# It is also possible to completely kill a command by renaming it into
+# an empty string:
+#
+# rename-command CONFIG ""
+```
+
+```bash
+rename-command SHUTDOWN ""
+```
+
 ## config 命令修改配置
 config 命令可以查看当前 redis 的配置，并且在不重启的情况下动态修改 redis 配置
 但并非所有的配置都可以动态修改
@@ -1394,6 +1417,42 @@ OK
 127.0.0.1:6379> SLOWLOG LEN
 (integer) 0
 ```
+
+## SELECT
+切换数据库
+
+```bash
+127.0.0.1:6379> get msg
+"hello"
+127.0.0.1:6379> select 1
+OK
+127.0.0.1:6379[1]> get msg
+(nil)
+```
+
+## KEYS
+> [KEYS](https://redis.io/commands/keys/)
+
+返回匹配模式的全表 key，KEYS * 则查看全表键值
+
+## BGSAVE
+手动执行 RDB 文件持久化操作，后台执行
+
+## DBSIZE
+查看当前数据库下全部 key 的数量
+
+## FLUSHDB
+强制情况当前数据库的全部 key
+
+## FLUSHALL
+强制清空所有数据库的 key
+
+## SHUTDOWN
+> [SHUTDOWN](https://redis.io/commands/shutdown/)
+
+关闭 Redis 服务
+
+
 
 
 # Redis 持久化
