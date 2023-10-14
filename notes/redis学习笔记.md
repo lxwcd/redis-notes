@@ -1201,6 +1201,7 @@ zset
 ## Stream 
 > [Stream](https://www.xiaolincoding.com/redis/data_struct/command.html#stream)
 > [Redis Streams](https://redis.io/docs/data-types/streams/)
+> [Manage streams and consumer groups in RedisInsight](https://redis.io/docs/ui/insight/tutorials/insight-stream-consumer/)
 
 - 用于实现消息队列而设计的类型
 
@@ -1590,9 +1591,35 @@ The rewrite will be only triggered by Redis if there is not already a background
 
 
 
-set key value 时怎么设置类型的？
+# 消息队列
+消息队列（Message Queue）是一种在应用程序之间进行异步通信的软件架构模式。
+它允许应用程序通过发送和接收消息来进行解耦和协调。
+
+在消息队列中，发送者（Producer）将消息发送到消息队列，而接收者（Consumer）则从队列中接收并处理消息。
+这种模式可以让发送者和接收者在时间上解耦，使得它们可以独立地处理消息，而不需要实时的直接通信。
+
+消息队列的基本原理是将消息存储在中间件（Message Broker）中，这是一个可靠的中间组件。
+中间件负责接收、存储和分发消息，以便发送者和接收者可以异步地进行通信。
+消息队列通常遵循先进先出（FIFO）的消息处理顺序。
+
+消息队列的一些主要特点和优势包括：
+1. 异步通信：发送者和接收者之间的通信是异步的，发送者不需要等待接收者的响应即可继续执行其他任务。
+
+2. 解耦和松散耦合：通过将消息发送到队列中，发送者和接收者之间的耦合度降低。它们可以独立进行开发、部署和扩展。
+
+3. 削峰填谷：当接收者的处理速度较慢时，消息队列可以缓冲和平衡消息的流量，防止系统过载，并提供负载均衡的能力。
+
+4. 可靠性和持久性：消息队列通常具备持久化消息的能力，确保消息在存储中的安全存储和传输。即使在发送者或接收者发生故障时，消息也能得到保留和处理。
+
+5. 扩展性：通过增加更多的消费者，可以轻松地扩展系统的处理能力，以满足高负载和高并发的需求。
+
+消息队列被广泛应用于各种场景，如应用解耦、任务调度、日志传输、事件驱动架构、异步处理等。常见的消息队列实现包括 RabbitMQ、Apache Kafka、ActiveMQ、Redis Pub/Sub 等。
 
 
+
+## 生产者消费者模式
+> [Redis Streams](https://redis.io/docs/data-types/streams/)
+> [Manage streams and consumer groups in RedisInsight](https://redis.io/docs/ui/insight/tutorials/insight-stream-consumer/)
 
 
 
