@@ -1632,6 +1632,11 @@ The rewrite will be only triggered by Redis if there is not already a background
 127.0.0.1:6379> SUBSCRIBE channel01 channel02
 ```
 
+取消订阅
+```bash
+127.0.0.1:6379> UNSUBSCRIBE channel01
+```
+
 发布频道消息
 ```bash
 127.0.0.1:6379> PUBLISH channel01 hello
