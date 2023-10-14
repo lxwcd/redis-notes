@@ -2,8 +2,11 @@ Redis 学习笔记
 
 # 资源
 > 书籍：Redis 设计与实现
+> 
 > [Redis 官网](https://redis.io/docs/)
+> 
 > [图解 Redis](https://www.xiaolincoding.com/redis/)
+> 
 > [在线 redis 环境](https://edu.aliyun.com/)
 
 
