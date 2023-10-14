@@ -1147,6 +1147,9 @@ hash
 ### 应用场景
 > [应用场景](https://www.xiaolincoding.com/redis/data_struct/command.html#应用场景-3)
 
+- 缓存对象
+- 购物车
+
 
 ## 集合 Set
 > [Set](https://www.xiaolincoding.com/redis/data_struct/command.html#set)
@@ -1271,6 +1274,20 @@ set
 
 ### 应用场景
 > [应用场景](https://www.xiaolincoding.com/redis/data_struct/command.html#应用场景-4)
+
+- 点赞
+- 共同的好友，公众号中同时关注的人数等
+- 抽奖
+
+## 有序集合 Sorted Set
+> [Redis sorted sets](https://redis.io/docs/data-types/sorted-sets/)
+> [ZSet](https://www.xiaolincoding.com/redis/data_struct/command.html#zset)
+
+- 与 set 相比，每个元素的值多了一个排序值
+- 元素仍不能重复
+- 元素可以排序
+
+### 常用命令
 
 
 
