@@ -1683,9 +1683,10 @@ replicaof no one
 `INFO replication` 查看状态
 
 ## 主从复制的过程
-分为全量同步和增量同步
+> []()
 
-1. full resync
+
+1. 全量复制 full resync
 - 建立连接，验证身份
 - 从节点发送 PSYNC 命令
 - 主节点发送 FULLRESYNC 命令，包括 runID 和复制偏移量 offset
@@ -1694,7 +1695,33 @@ runID 用于唯一标识该节点，offset 表示主节点复制到从节点的�
 - 主节点执行 bgsave 命令生成 RDB 文件，然后发送给从节点
 期间主节点新的数据保存在 replication buffer 中
 - 从节点丢弃旧数据，加载主节点发送的 RDB 文件，加载完成后给主节点发送确认消息
-1. 
+2. 命令传播 
+主从服务器完成一次全量复制后，维持一个 TCP 连接，后续主服务器通过该连接将新的命令发送给从服务器
+该过程即为基于长连接的命令传播，为了避免频繁的 TCP 连接和断开
+
+命令传播阶段，从服务器默认每秒向主服务器发送心跳检测命令以检测主从服务器的连接状况
+3. 增量复制
+如果主从服务器断开连接一段时间又恢复，此时从服务器与主服务器的复制偏移量相差不大，未复制的数据还在主服务器的 repl_backlog_buffer中，则采用增量复制方式同步数据
+
+repl_backlog_buffer 是主从服务器断开连接后主服务器写入的数据
+```bash
+# Set the replication backlog size. The backlog is a buffer that accumulates
+# replica data when replicas are disconnected for some time, so that when a
+# replica wants to reconnect again, often a full resync is not needed, but a
+# partial resync is enough, just passing the portion of data the replica
+# missed while disconnected.
+#
+# The bigger the replication backlog, the longer the replica can endure the
+# disconnect and later be able to perform a partial resynchronization.
+#
+# The backlog is only allocated if there is at least one replica connected.
+#
+# repl-backlog-size 1mb
+```
+该缓冲区是一个环形队列，叫复制积压缓冲区
+主服务根据从服务器发送的复制偏移量 slave_repl_offset 和主节点自己当前一些数据的偏移量 master_repl_offset 查看从节点缺失的数据是否还在复制挤压缓冲区中，在则用部分同步，即增量复制的方式
+
+然后主节点将数据写到 replication buffer 中发送给从节点
 
 # Redis 主从复制配置哨兵
 > [Redis replication](https://redis.io/docs/management/replication/)
