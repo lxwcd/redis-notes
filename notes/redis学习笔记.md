@@ -8,7 +8,8 @@ Redis 学习笔记
 > [图解 Redis](https://www.xiaolincoding.com/redis/)  
 >  
 > [在线 redis 环境](https://edu.aliyun.com/)  
-    
+>
+> [redis 视频](https://www.bilibili.com/video/BV13R4y1v7sP/?spm_id_from=333.1387.search.video_card.click&vd_source=a99dfd145a3e6aa8000930c149d4bf58) 
     
 # NoSQL  
 > [What is a NoSQL database?](https://redis.com/nosql/what-is-nosql/)  
@@ -223,7 +224,7 @@ When a partition occurs, all nodes remain available but those at the wrong end o
 Pipeline 技术是一种用于提高计算机系统性能和效率的方法。它通过将连续的操作划分为多个阶段，并将这些阶段的输出直接传递给下一个阶段，以实现并行处理和流水线化执行。  
     
 - 工作原理  
-Pipeline 技术将一个任务或操作分解为多个独立的阶段，每个阶段执行特定的任务。每个阶段的输出直接传递给下一个阶段，而不需要等待整个任务完成。这样，不同的阶段可以并行执行，从而提高整体的处理速度和效率。  
+Pipeline 技术将一个任务或操作分解为多个独立的阶段，每个阶段执行特定的任务。每个阶段的输出直接传递给下一个阶段，而不需要等待整个任务完成。这样，独立的不同的阶段可以并行执行，从而提高整体的处理速度和效率。  
     
 - 并行处理  
 Pipeline 技术通过并行执行不同阶段的任务，充分利用计算资源，提高系统的并发性和吞吐量。每个阶段在处理当前输入时，前一阶段可以开始处理下一个输入，从而实现并行处理。  
